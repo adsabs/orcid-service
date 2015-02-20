@@ -2,6 +2,8 @@
 
 Web micro service for ORCID
 
+[![Travis Status](https://travis-ci.org/adsabs/orcid-service.png?branch=master)](https://travis-ci.org/adsabs/orcid-service)
+
 #Installation:
 
 ```bash
