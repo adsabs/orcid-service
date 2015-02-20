@@ -7,7 +7,6 @@ from flask import url_for, request
 import unittest
 import json
 import httpretty
-import app
 import cgi
 from StringIO import StringIO
 from stubdata import orcid_profile
