@@ -13,7 +13,7 @@ except IOError:
 
 discoverer = Discoverer(app)
 
-@advertise(scopes=['ads:default'], rate_limit = [100, 3600*24])
+@advertise(scopes=[], rate_limit = [100, 3600*24])
 @app.route('/exchangeOAuthCode', methods=['GET'])
 def get_access_token():
     '''Exchange 'code' for 'access_token' data'''
@@ -31,7 +31,7 @@ def get_access_token():
     r = requests.post(current_app.config['ORCID_OAUTH_ENDPOINT'], data=data, headers=headers)
     return r.text, r.status_code
 
-@advertise(scopes=['ads:default'], rate_limit = [1000, 3600*24])
+@advertise(scopes=[], rate_limit = [1000, 3600*24])
 @app.route('/<orcid_id>/orcid-profile', methods=['GET', 'POST'])
 def orcid_profile(orcid_id):
     '''Get/Set /[orcid-id]/orcid-profile - all communication exclusively in JSON'''
@@ -44,7 +44,7 @@ def orcid_profile(orcid_id):
                          json=payload, headers=headers)
     return r.text, r.status_code
 
-@advertise(scopes=['ads:default'], rate_limit = [1000, 3600*24])
+@advertise(scopes=[], rate_limit = [1000, 3600*24])
 @app.route('/<orcid_id>/orcid-works', methods=['GET', 'POST', 'PUT'])
 def orcid_works(orcid_id):
     '''Get/Set /[orcid-id]/orcid-works - all communication exclusively in JSON'''
