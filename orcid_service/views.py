@@ -48,9 +48,9 @@ def orcid_profile(orcid_id):
 @app.route('/<orcid_id>/orcid-works', methods=['GET', 'POST', 'PUT'])
 def orcid_works(orcid_id):
     '''Get/Set /[orcid-id]/orcid-works - all communication exclusively in JSON'''
-    
+
     payload, headers = check_request(request)
-    
+
     if request.method == 'GET':
         r = requests.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/orcid-works', 
                       headers=headers)
@@ -80,7 +80,7 @@ def check_request(request):
     #        h[x] = headers[x]
             
     if 'Content-Type' in headers \
-        and headers['Content-Type'] == 'application/json' \
+        and 'application/json' in headers['Content-Type'] \
         and request.method in ('POST', 'PUT'):
         payload = request.json
     else:
