@@ -4,4 +4,4 @@ python:
 install:
 - pip install -r requirements.txt
 - pip install -r dev-requirements.txt
-script: orcid_service/tests/run_tests.py
+script: nosetests

@@ -1,20 +1,11 @@
-from flask import Flask
-from flask import current_app, request
-from flask.ext.discoverer import Discoverer, advertise
+from flask import current_app, request, Blueprint
+from flask.ext.discoverer import advertise
 import requests
 
-app = Flask(__name__, static_folder=None)
-app.url_map.strict_slashes = False
-app.config.from_pyfile('config.py')
-try:
-  app.config.from_pyfile('local_config.py')
-except IOError:
-  pass
-
-discoverer = Discoverer(app)
+bp = Blueprint('orcid', __name__)
 
 @advertise(scopes=[], rate_limit = [100, 3600*24])
-@app.route('/exchangeOAuthCode', methods=['GET'])
+@bp.route('/exchangeOAuthCode', methods=['GET'])
 def get_access_token():
     '''Exchange 'code' for 'access_token' data'''
     payload = dict(request.args)
@@ -32,7 +23,7 @@ def get_access_token():
     return r.text, r.status_code
 
 @advertise(scopes=[], rate_limit = [1000, 3600*24])
-@app.route('/<orcid_id>/orcid-profile', methods=['GET', 'POST'])
+@bp.route('/<orcid_id>/orcid-profile', methods=['GET', 'POST'])
 def orcid_profile(orcid_id):
     '''Get/Set /[orcid-id]/orcid-profile - all communication exclusively in JSON'''
     payload, headers = check_request(request)
@@ -45,7 +36,7 @@ def orcid_profile(orcid_id):
     return r.text, r.status_code
 
 @advertise(scopes=[], rate_limit = [1000, 3600*24])
-@app.route('/<orcid_id>/orcid-works', methods=['GET', 'POST', 'PUT'])
+@bp.route('/<orcid_id>/orcid-works', methods=['GET', 'POST', 'PUT'])
 def orcid_works(orcid_id):
     '''Get/Set /[orcid-id]/orcid-works - all communication exclusively in JSON'''
 
@@ -62,7 +53,6 @@ def orcid_works(orcid_id):
                       json=payload, headers=headers)
     return r.text, r.status_code
 
-    
 
 def check_request(request):
     
