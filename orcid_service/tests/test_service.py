@@ -14,11 +14,13 @@ class TestServices(TestCase):
 
     @httpretty.activate
     def test_exchangeOAuthCode(self):
+        client_id = self.app.config['ORCID_CLIENT_ID']
+        client_secret = self.app.config['ORCID_CLIENT_SECRET']
         def request_callback(request, uri, headers):
             assert request.headers['Accept'] == 'application/json'
             assert request.parsed_body['code'] == [u'exWxfg']
-            assert request.parsed_body['client_id'] == [u'APP-P5ANJTQRRTMA6GXZ']
-            assert request.parsed_body['client_secret'] == [u'989e54c8-7093-4128-935f-30c19ed9158c']
+            assert request.parsed_body['client_id'] == [client_id]
+            assert request.parsed_body['client_secret'] == [client_secret]
             return (200, headers, """{
                 "access_token":"44180096-5d32-49f7-bca1-1f67fd7f1b7d",
                 "token_type":"bearer",
