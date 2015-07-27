@@ -1,24 +1,16 @@
-import sys, os
-from urllib import urlencode
-PROJECT_HOME = os.path.abspath(os.path.join(os.path.dirname(__file__), '../'))
-sys.path.append(PROJECT_HOME)
 from flask.ext.testing import TestCase
-from flask import url_for, request
+from flask import url_for
 import unittest
 import json
 import httpretty
-import cgi
-from StringIO import StringIO
+from orcid_service import app
 from stubdata import orcid_profile
 
 class TestServices(TestCase):
-    '''Tests that each route is an http response'''
 
     def create_app(self):
         '''Start the wsgi application'''
-        from views import app
-        return app
-
+        return app.create_app()
 
     @httpretty.activate
     def test_exchangeOAuthCode(self):
@@ -40,7 +32,7 @@ class TestServices(TestCase):
             content_type='application/json',
             body=request_callback)
 
-        r = self.client.get(url_for('get_access_token'), query_string={'code': 'exWxfg'})
+        r = self.client.get(url_for('orcid.get_access_token'), query_string={'code': 'exWxfg'})
         self.assertStatus(r, 200)
         self.assertIn('access_token', r.json)
 

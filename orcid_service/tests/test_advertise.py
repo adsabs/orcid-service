@@ -1,8 +1,6 @@
-import sys, os
-PROJECT_HOME = os.path.abspath(os.path.join(os.path.dirname(__file__),'../'))
-sys.path.append(PROJECT_HOME)
 from flask.ext.testing import TestCase
 import unittest
+from orcid_service import app
 
 
 class TestWebservices(TestCase):
@@ -10,8 +8,7 @@ class TestWebservices(TestCase):
   
   def create_app(self):
     '''Start the wsgi application'''
-    from views import app
-    return app
+    return app.create_app()
 
   def test_ResourcesRoute(self):
     '''Tests for the existence of a /resources route, and that it returns properly formatted JSON data'''
