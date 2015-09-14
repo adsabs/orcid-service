@@ -6,7 +6,7 @@ import os
 import sys
 
 # this is the Alembic Config object, which provides
-Qn# access to the values within the .ini file in use.
+# access to the values within the .ini file in use.
 config = context.config
 
 # Interpret the config file for Python logging.
@@ -63,7 +63,7 @@ def run_migrations_online():
     """
     cfg = config.get_section(config.config_ini_section)
     if 'use_flask_db_url' in cfg and cfg['use_flask_db_url'] == 'true':
-        cfg['sqlalchemy.url'] = get_app_config('SQLALCHEMY_BINDS')['myads']
+        cfg['sqlalchemy.url'] = get_app_config('SQLALCHEMY_BINDS')['orcid']
     
     
     engine = engine_from_config(

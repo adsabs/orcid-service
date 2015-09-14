@@ -2,7 +2,9 @@ from flask import current_app, request, Blueprint
 from flask.ext.discoverer import advertise
 from .models import db, User
 import requests
-import datetime
+from datetime import datetime
+from dateutil import parser
+import json
 
 bp = Blueprint('orcid', __name__)
 
@@ -28,8 +30,8 @@ def get_access_token():
     if 'orcid' in data:
         u = db.session.query(User).filter_by(orcid_id=data['orcid']).first()
         if not u:
-            u = User(orcid_id=data['orcid'], created=datetime.now())
-        u.updated = datetime.now()
+            u = User(orcid_id=data['orcid'], created=datetime.utcnow())
+        u.updated = datetime.utcnow()
         u.access_token = data['access_token']
         # save the user
         db.session.begin_nested()
@@ -89,10 +91,34 @@ def orcid_works(orcid_id):
     return r.text, r.status_code
 
 
+@advertise(scopes=['ads-consumer:orcid'], rate_limit = [1000, 3600*24])
+@bp.route('/export/<timestamp>', methods=['GET'])
+def export(date_to_start_from):
+    '''Get the latest changes (as recorded in the ORCID)
+    The optional argument latest_point is RFC3339, ie. '2008-09-03T20:56:35.450686Z'
+    '''
+    
+    latest_point = parser.parse(date_to_start_from) # RFC 3339 format
+    
+    # poorman's version of paging
+    output = []
+    recs = db.session.query(User).filter(User.updated >= latest_point) \
+        .order_by(User.updated.desc()) \
+        .limit(100).all()
+
+    for r in recs:
+        output.append({'updated': r.updated, 'orcid': r.orcid_id, 'profile': r.profile})
+    
+    return json.dumps(output), 200
+
+
 def update_profile(orcid_id, data):
+    """Inserts data into the user record and updates the 'updated'
+    column with the most recent timestamp"""
+    
     u = db.session.query(User).filter_by(orcid_id=orcid_id).first()
     if u:
-        u.updated = datetime.now()
+        u.updated = datetime.utcnow()
         u.profile = data
         # save the user
         db.session.begin_nested()
