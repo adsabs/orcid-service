@@ -227,5 +227,10 @@ class TestServices(TestCase):
                 headers={'Orcid-Authorization': 'secret'})
         self.assertTrue(len(r.json) == 0)
         
+        
+        # and it can retrieve the data (for us)
+        r = self.client.get('/get-profile/%s' % '0000-0001-8178-9506')
+        self.assertTrue(r.json['profile'] == 'get')
+        
 if __name__ == '__main__':
   unittest.main()

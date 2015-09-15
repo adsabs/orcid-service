@@ -111,6 +111,30 @@ def export(iso_datestring):
     return json.dumps(output), 200
 
 
+@advertise(scopes=['ads-consumer:orcid'], rate_limit = [1000, 3600*24])
+@bp.route('/get-profile/<orcid_id>', methods=['GET'])
+def get_profile(orcid_id):
+    '''Fetches the latest orcid-profile'''
+    
+    u = db.session.query(User).filter_by(orcid_id=orcid_id).first()
+    if not u:
+        return json.dumps({'error': 'We do not have a record for: %s' % user_id}), 404
+    
+    if not u.access_token:
+        return json.dumps({'error': 'We do not have access_token for: %s' % user_id}), 404
+    
+    h = {
+         'Accept': 'application/json', 
+         'Authorization': 'Bearer:%s' % u.access_token,
+         'Content-Type': 'application/json'
+         }
+    
+    r = requests.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/orcid-profile',
+                         headers=h)
+    
+    return r.text, r.status_code
+
+
 def update_profile(orcid_id, data=None):
     """Inserts data into the user record and updates the 'updated'
     column with the most recent timestamp"""
