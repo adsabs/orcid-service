@@ -4,6 +4,7 @@ from .models import db, User
 import requests
 from datetime import datetime
 from dateutil import parser
+from sqlalchemy import exc
 import json
 
 bp = Blueprint('orcid', __name__)
@@ -72,54 +73,53 @@ def orcid_works(orcid_id):
 
     payload, headers = check_request(request)
 
-    orcid_updated = False
     if request.method == 'GET':
         r = requests.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/orcid-works', 
                       headers=headers)
     elif request.method == 'PUT':
         r = requests.put(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/orcid-works', 
                       json=payload, headers=headers)
-        orcid_updated = True
+        update_profile(orcid_id)
     elif request.method == 'POST':
         r = requests.post(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/orcid-works', 
                       json=payload, headers=headers)
-        orcid_updated = True
+        update_profile(orcid_id)
         
-    if orcid_updated:
-        update_profile(orcid_id, r.text)
         
     return r.text, r.status_code
 
 
 @advertise(scopes=['ads-consumer:orcid'], rate_limit = [1000, 3600*24])
-@bp.route('/export/<timestamp>', methods=['GET'])
-def export(date_to_start_from):
+@bp.route('/export/<iso_datestring>', methods=['GET'])
+def export(iso_datestring):
     '''Get the latest changes (as recorded in the ORCID)
     The optional argument latest_point is RFC3339, ie. '2008-09-03T20:56:35.450686Z'
     '''
     
-    latest_point = parser.parse(date_to_start_from) # RFC 3339 format
+    latest_point = parser.parse(iso_datestring) # RFC 3339 format
     
-    # poorman's version of paging
+    # poorman's version of paging, but it works because the time resolution is in 
+    # microseconds
     output = []
     recs = db.session.query(User).filter(User.updated >= latest_point) \
         .order_by(User.updated.desc()) \
         .limit(100).all()
 
     for r in recs:
-        output.append({'updated': r.updated, 'orcid': r.orcid_id, 'profile': r.profile})
+        output.append({'orcid_id': r.orcid_id, 'created': r.created.isoformat(), 'updated': r.updated.isoformat(), 'profile': r.profile})
     
     return json.dumps(output), 200
 
 
-def update_profile(orcid_id, data):
+def update_profile(orcid_id, data=None):
     """Inserts data into the user record and updates the 'updated'
     column with the most recent timestamp"""
     
     u = db.session.query(User).filter_by(orcid_id=orcid_id).first()
     if u:
         u.updated = datetime.utcnow()
-        u.profile = data
+        if data:
+            u.profile = data
         # save the user
         db.session.begin_nested()
         try:

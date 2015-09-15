@@ -5,3 +5,4 @@ Flask-SQLAlchemy
 alembic
 sqlalchemy-utils
 psycopg2
+python-dateutil
