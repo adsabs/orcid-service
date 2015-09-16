@@ -12,7 +12,7 @@ class TestServices(TestCase):
     def create_app(self):
         '''Start the wsgi application'''
         a = app.create_app({
-            'xSQLALCHEMY_BINDS' : {
+            'SQLALCHEMY_BINDS' : {
                 'orcid':        'sqlite:///'
             }
            })
@@ -162,8 +162,10 @@ class TestServices(TestCase):
             content_type='application/json',
             body='')
         
-        db.session.delete(db.session.query(User).filter_by(orcid_id='0000-0001-8178-9506').first())
-        db.session.commit()
+        u = db.session.query(User).filter_by(orcid_id='0000-0001-8178-9506').first()
+        if u:
+            db.session.delete(u)
+            db.session.commit()
         
         # at the beginning, there is no user record
         u = db.session.query(User).filter_by(orcid_id='0000-0001-8178-9506').first()
