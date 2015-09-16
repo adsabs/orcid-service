@@ -45,8 +45,9 @@ def load_config(app, config=None):
     """
     Loads configuration in the following order:
         1. config.py
-        2. local_config.py (ignore failures)
-        3. consul (ignore failures)
+        2. consul (ignore failures)
+        3. local_config.py (ignore failures)
+        4. local parameters passed in 'config'
     :param app: flask.Flask application instance
     :return: None
     """
@@ -54,13 +55,14 @@ def load_config(app, config=None):
     app.config.from_pyfile('config.py')
 
     try:
-        app.config.from_pyfile('local_config.py')
-    except IOError:
-        app.logger.warning("Could not load local_config.py")
-    try:
         app.extensions['consul'].apply_remote_config()
     except ConsulConnectionError, e:
         app.logger.warning("Could not apply config from consul: {}".format(e))
-        
+
+    try:
+        app.config.from_pyfile('local_config.py')
+    except IOError:
+        app.logger.warning("Could not load local_config.py")
+                
     if config:
         app.config.update(config)

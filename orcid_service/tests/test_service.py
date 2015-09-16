@@ -12,7 +12,7 @@ class TestServices(TestCase):
     def create_app(self):
         '''Start the wsgi application'''
         a = app.create_app({
-            'SQLALCHEMY_BINDS' : {
+            'xSQLALCHEMY_BINDS' : {
                 'orcid':        'sqlite:///'
             }
            })
@@ -162,6 +162,9 @@ class TestServices(TestCase):
             content_type='application/json',
             body='')
         
+        db.session.delete(db.session.query(User).filter_by(orcid_id='0000-0001-8178-9506').first())
+        db.session.commit()
+        
         # at the beginning, there is no user record
         u = db.session.query(User).filter_by(orcid_id='0000-0001-8178-9506').first()
         self.assertTrue(u is None)
@@ -179,7 +182,7 @@ class TestServices(TestCase):
         r = self.client.get('/0000-0001-8178-9506/orcid-profile',
                 headers={'Orcid-Authorization': 'secret'})
         self.assertTrue(u.updated > updated)
-        self.assertTrue(u.profile == json.dumps({'profile': 'get'}))
+        self.assertTrue(str(u.profile) == json.dumps({'profile': 'get'}))
 
         updated = u.updated        
         r = self.client.post('/0000-0001-8178-9506/orcid-profile',
@@ -187,14 +190,14 @@ class TestServices(TestCase):
                 data=json.dumps({'foo': 'bar'}),
                 content_type='application/json')
         self.assertTrue(u.updated > updated)
-        self.assertTrue(u.profile == json.dumps({'profile': 'post'}))
+        self.assertTrue(str(u.profile) == json.dumps({'profile': 'post'}))
         
         # and when they access orcid-works (and modify something)
         updated = u.updated
         r = self.client.get('/0000-0001-8178-9506/orcid-works',
                 headers={'Orcid-Authorization': 'secret'})
         self.assertTrue(u.updated == updated)
-        self.assertTrue(u.profile == json.dumps({'profile': 'post'}))
+        self.assertTrue(str(u.profile) == json.dumps({'profile': 'post'}))
         
         # we do not update profile (only timestamp)
         updated = u.updated
@@ -203,7 +206,7 @@ class TestServices(TestCase):
                 data=json.dumps({'foo': 'bar'}),
                 content_type='application/json')
         self.assertTrue(u.updated > updated)
-        self.assertTrue(u.profile == json.dumps({'profile': 'post'}))
+        self.assertTrue(str(u.profile) == json.dumps({'profile': 'post'}))
         
         updated = u.updated
         r = self.client.post('/0000-0001-8178-9506/orcid-works',
@@ -211,7 +214,7 @@ class TestServices(TestCase):
                 data=json.dumps({'foo': 'bar'}),
                 content_type='application/json')
         self.assertTrue(u.updated > updated)
-        self.assertTrue(u.profile == json.dumps({'profile': 'post'}))
+        self.assertTrue(str(u.profile) == json.dumps({'profile': 'post'}))
         
         
         # check we can get export the data

@@ -25,7 +25,7 @@ def upgrade():
         sa.Column('access_token', sa.String(length=255), nullable=True),
         sa.Column('created', sa.DateTime(), nullable=True, default=datetime.datetime.utcnow),
         sa.Column('updated', sa.DateTime(), nullable=True, default=datetime.datetime.utcnow),
-        sa.Column('profile', sa.LargeBinary, nullable=True),
+        sa.Column('profile', sa.Text, nullable=True),
         sa.PrimaryKeyConstraint('orcid_id')
     )    
 

@@ -18,4 +18,4 @@ class User(db.Model):
     access_token = db.Column(db.String(255))
     created = db.Column(db.TIMESTAMP)
     updated = db.Column(db.TIMESTAMP)
-    profile = db.Column(db.LargeBinary)
+    profile = db.Column(db.Text)
