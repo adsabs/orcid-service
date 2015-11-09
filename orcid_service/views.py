@@ -106,7 +106,14 @@ def export(iso_datestring):
         .limit(100).all()
 
     for r in recs:
-        output.append({'orcid_id': r.orcid_id, 'created': r.created.isoformat(), 'updated': r.updated.isoformat(), 'profile': str(r.profile)})
+        try:
+            profile = json.loads(unicode(r.profile))
+        except:
+            profile = None 
+        output.append({'orcid_id': r.orcid_id, 
+                       'created': r.created.isoformat(), 
+                       'updated': r.updated.isoformat(), 
+                       'profile': profile})
     
     return json.dumps(output), 200
 

@@ -237,5 +237,17 @@ class TestServices(TestCase):
         r = self.client.get('/get-profile/%s' % '0000-0001-8178-9506')
         self.assertTrue(r.json['profile'] == 'get')
         
+        # check we can save/get utf-8 data
+        u = db.session.query(User).filter_by(orcid_id='0000-0001-8178-9506').first()
+        u.profile = u'{"foo": "\xe9"}'
+        db.session.commit()
+        
+        r = self.client.get('/export/%s' % u.updated.isoformat(),
+                headers={'Orcid-Authorization': 'secret'})
+        self.assertTrue(len(r.json) == 1)
+        self.assertTrue(r.json[0]['created'])
+        self.assertTrue(r.json[0]['profile'] == {"foo": u"\xe9"})
+        
+        
 if __name__ == '__main__':
   unittest.main()
