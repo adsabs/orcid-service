@@ -102,7 +102,7 @@ def export(iso_datestring):
     # microseconds
     output = []
     recs = db.session.query(User).filter(User.updated >= latest_point) \
-        .order_by(User.updated.desc()) \
+        .order_by(User.updated.asc()) \
         .limit(current_app.config.get('MAX_PROFILES_RETURNED', 10)).all()
 
     for r in recs:
