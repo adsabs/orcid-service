@@ -103,7 +103,7 @@ def export(iso_datestring):
     output = []
     recs = db.session.query(User).filter(User.updated >= latest_point) \
         .order_by(User.updated.desc()) \
-        .limit(100).all()
+        .limit(current_app.config.get('MAX_PROFILES_RETURNED', 10)).all()
 
     for r in recs:
         try:
