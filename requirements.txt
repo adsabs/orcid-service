@@ -1,6 +1,6 @@
 flask-discoverer
 requests
-flask-consulate
+flask-consulate==0.1.2
 Flask-SQLAlchemy
 alembic
 sqlalchemy-utils
