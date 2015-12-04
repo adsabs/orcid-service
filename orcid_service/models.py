@@ -19,3 +19,4 @@ class User(db.Model):
     created = db.Column(db.TIMESTAMP)
     updated = db.Column(db.TIMESTAMP)
     profile = db.Column(db.Text)
+    info = db.Column(db.Text)

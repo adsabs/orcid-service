@@ -11,3 +11,35 @@ SQLALCHEMY_BINDS = {
     'orcid':        'sqlite:///'
 }
 SQLALCHEMY_ECHO = False
+
+ORCID_LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'default': {
+            'format': '%(levelname)s\t%(process)d '
+                      '[%(asctime)s]:\t%(message)s',
+            'datefmt': '%m/%d/%Y %H:%M:%S',
+        }
+    },
+    'handlers': {
+        'file': {
+            'formatter': 'default',
+            'level': 'INFO',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': '/tmp/orcid_service.log',
+        },
+        'console': {
+            'formatter': 'default',
+            'level': 'INFO',
+            'class': 'logging.StreamHandler'
+        },
+    },
+    'loggers': {
+        '': {
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+}
