@@ -1,3 +1,5 @@
+
+import logging.config
 from flask import Flask
 from views import bp
 from flask.ext.consulate import Consul, ConsulConnectionError
@@ -13,8 +15,11 @@ def create_app(config=None):
     Consul(app)  # load_config expects consul to be registered
     load_config(app, config)
     db.init_app(app)
+    logging.config.dictConfig(
+        app.config['ORCID_LOGGING']
+    )
     
-     ## pysqlite driver breaks transactions, we have to apply some hacks as per
+    ## pysqlite driver breaks transactions, we have to apply some hacks as per
     ## http://docs.sqlalchemy.org/en/rel_0_9/dialects/sqlite.html#pysqlite-serializable
     
     if 'sqlite' in (app.config.get('SQLALCHEMY_BINDS') or {'orcid':''})['orcid']:

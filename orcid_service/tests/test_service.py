@@ -247,7 +247,60 @@ class TestServices(TestCase):
         self.assertTrue(len(r.json) == 1)
         self.assertTrue(r.json[0]['created'])
         self.assertTrue(r.json[0]['profile'] == {"foo": u"\xe9"})
+
+
+    def test_store_preferences(self):
+        '''Tests the ability to store data'''
+        u = db.session.query(User).filter_by(access_token='keyx').first()
+        if u:
+            db.session.delete(u)
+            db.session.commit()
+        u = User(orcid_id='test', access_token='keyx')
+        db.session.add(u)
+        db.session.commit()
+            
+        # wrong request (missing Orcid-Authorization)
+        r = self.client.get(url_for('orcid.preferences', orcid_id='test'),
+                headers={'Authorization': 'secret'},
+                data=json.dumps({'foo': 'bar'}),
+                content_type='application/json')
         
+        self.assertStatus(r, 400)
+        
+        # no data is there yet (get params ignored)
+        r = self.client.get(url_for('orcid.preferences', orcid_id='test'),
+                headers={'Authorization': 'secret', 'Orcid-Authorization': 'keyx'},
+                data=json.dumps({'foo': 'bar'}),
+                content_type='application/json')
+        
+        self.assertStatus(r, 200)
+        self.assert_(r.json == {}, 'missing empty json response')
+        
+        # try to save something broken (it has to be json)
+        r = self.client.post(url_for('orcid.preferences', orcid_id='test'),
+                headers={'Authorization': 'secret', 'Orcid-Authorization': 'keyx'},
+                data=json.dumps({'foo': 'bar'})[0:-2],
+                content_type='application/json')
+        
+        self.assertStatus(r, 400)
+        self.assert_(r.json['msg'], 'missing explanation')
+        
+        # save something
+        r = self.client.post(url_for('orcid.preferences', orcid_id='test'),
+                headers={'Authorization': 'secret', 'Orcid-Authorization': 'keyx'},
+                data=json.dumps({'foo': 'bar'}),
+                content_type='application/json')
+        
+        self.assertStatus(r, 200)
+        self.assert_(r.json['foo'] == 'bar', 'missing echo')
+        
+        # get it back
+        r = self.client.get(url_for('orcid.preferences', orcid_id='test'),
+                headers={'Authorization': 'secret', 'Orcid-Authorization': 'keyx'},
+                content_type='application/json')
+        
+        self.assertStatus(r, 200)
+        self.assert_(r.json == {'foo': 'bar'}, 'missing data')
         
 if __name__ == '__main__':
   unittest.main()

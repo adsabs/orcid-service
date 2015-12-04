@@ -4,7 +4,7 @@ from .models import db, User
 import requests
 from datetime import datetime
 from dateutil import parser
-from sqlalchemy import exc
+from sqlalchemy import exc, and_
 import json
 
 bp = Blueprint('orcid', __name__)
@@ -142,6 +142,50 @@ def get_profile(orcid_id):
     return r.text, r.status_code
 
 
+@advertise(scopes=[], rate_limit = [100, 3600*24])
+@bp.route('/preferences/<orcid_id>', methods=['GET', 'POST'])
+def preferences(orcid_id):
+    '''Allows you to store/retrieve JSON data on the server side.
+    It is always associated with the ORCID access token so there
+    is no need for scope access
+    '''
+    
+    # get the query data
+    try:
+        payload, headers = check_request(request)
+    except Exception as e:
+        return json.dumps({'msg': e.message or e.description}), 400
+    
+    access_token = headers['Authorization']
+    
+    if request.method == 'GET':
+        u = db.session.query(User).filter(and_(User.orcid_id==orcid_id, User.access_token==access_token)).first()
+        if not u:
+            return '{}', 404 # not found
+        return u.info or '{}', 200
+    elif request.method == 'POST':
+        d = json.dumps(payload)
+        if len(d) > current_app.config.get('MAX_ALLOWED_JSON_SIZE', 1000):
+            return json.dumps({'msg': 'You have exceeded the allowed storage limit, no data was saved'}), 400
+        u = db.session.query(User).filter(and_(User.orcid_id==orcid_id, User.access_token==access_token)).first()
+        if not u:
+            return json.dumps({'error': 'We do not have a record for: %s' % orcid_id}), 404
+    
+        u.info = d
+    
+        db.session.begin_nested()
+        try:
+            db.session.merge(u)
+            db.session.commit()
+        except exc.IntegrityError:
+            db.session.rollback()
+            return json.dumps({'msg': 'We have hit a db error! The world is crumbling all around... (eh, btw, your data was not saved)'}), 500
+    
+        # per PEP-0249 a transaction is always in progress    
+        db.session.commit()
+        return d, 200
+    
+    
 def update_profile(orcid_id, data=None):
     """Inserts data into the user record and updates the 'updated'
     column with the most recent timestamp"""
