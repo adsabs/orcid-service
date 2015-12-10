@@ -27,7 +27,7 @@ ORCID_LOGGING = {
             'formatter': 'default',
             'level': 'INFO',
             'class': 'logging.handlers.TimedRotatingFileHandler',
-            'filename': '/tmp/orcid_service.log',
+            'filename': '/tmp/orcid_service_app.log',
         },
         'console': {
             'formatter': 'default',
