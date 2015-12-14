@@ -156,7 +156,7 @@ def preferences(orcid_id):
     except Exception as e:
         return json.dumps({'msg': e.message or e.description}), 400
     
-    access_token = headers['Authorization']
+    access_token = headers['Authorization'][7:] # remove the 'Bearer:' thing
     
     if request.method == 'GET':
         u = db.session.query(User).filter(and_(User.orcid_id==orcid_id, User.access_token==access_token)).first()
