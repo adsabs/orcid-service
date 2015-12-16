@@ -6,3 +6,4 @@ alembic
 sqlalchemy-utils
 psycopg2
 python-dateutil
+requests==2.6.2
