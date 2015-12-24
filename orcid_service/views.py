@@ -5,6 +5,7 @@ import requests
 from datetime import datetime
 from dateutil import parser
 from sqlalchemy import exc, and_
+from sqlalchemy.orm import load_only
 import json
 
 bp = Blueprint('orcid', __name__)
@@ -98,22 +99,36 @@ def export(iso_datestring):
     
     latest_point = parser.parse(iso_datestring) # RFC 3339 format
     
+    payload = dict(request.args)
+    allowed_fields = ['orcid_id', 'created', 'updated', 'profile']
+    fields = payload.get('fields', allowed_fields)
+    fields_to_load = list(set(fields) & set(allowed_fields))
+    
+    if len(fields_to_load) == 0:
+        return json.dumps({'error': 'Wrong input values for fields: %s' % payload.get('fields')}), 404
+    
     # poorman's version of paging, but it works because the time resolution is in 
     # microseconds
     output = []
     recs = db.session.query(User).filter(User.updated >= latest_point) \
         .order_by(User.updated.asc()) \
-        .limit(current_app.config.get('MAX_PROFILES_RETURNED', 10)).all()
+        .limit(current_app.config.get('MAX_PROFILES_RETURNED', 10)) \
+        .options(load_only(*fields_to_load)) \
+        .all()
 
     for r in recs:
-        try:
-            profile = json.loads(unicode(r.profile))
-        except:
-            profile = None 
-        output.append({'orcid_id': r.orcid_id, 
-                       'created': r.created.isoformat(), 
-                       'updated': r.updated.isoformat(), 
-                       'profile': profile})
+        o = {}
+        for k in fields_to_load:
+            v = getattr(r, k)
+            if k == 'profile':
+                try:
+                    v = json.loads(unicode(v))
+                except:
+                    v = None
+            if hasattr(v, 'isoformat'):
+                v = v.isoformat()
+            o[k] = v
+        output.append(o)
     
     return json.dumps(output), 200
 
