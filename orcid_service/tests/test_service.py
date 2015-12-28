@@ -232,6 +232,15 @@ class TestServices(TestCase):
                 headers={'Orcid-Authorization': 'secret'})
         self.assertTrue(len(r.json) == 0)
         
+        r = self.client.get('/export/%s' % u.updated.isoformat(),
+                query_string={'fields': ['created', 'orcid_id']},
+                headers={'Orcid-Authorization': 'secret'})
+        self.assertTrue(len(r.json) == 1)
+        self.assertTrue(r.json[0].has_key('created'))
+        self.assertTrue(r.json[0].has_key('orcid_id'))
+        self.assertFalse(r.json[0].has_key('updated'))
+        self.assertFalse(r.json[0].has_key('profile'))
+        
         
         # and it can retrieve the data (for us)
         r = self.client.get('/get-profile/%s' % '0000-0001-8178-9506')
