@@ -7,6 +7,7 @@
 """
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import synonym
+import json
 
 db = SQLAlchemy() # must be run in the context of a flask application
 
@@ -20,3 +21,14 @@ class User(db.Model):
     updated = db.Column(db.TIMESTAMP)
     profile = db.Column(db.Text)
     info = db.Column(db.Text)
+    
+    def toJSON(self):
+        """Returns value formatted as python dict."""
+        return {
+            'orcid_id': self.orcid_id,
+            'access_token': self.access_token,
+            'created': self.created and self.created.isoformat() or None,
+            'updated': self.updated and self.updated.isoformat() or None,
+            'profile': self.profile and json.loads(self.profile) or None,
+            'info': self.info and json.loads(self.info) or None
+        }

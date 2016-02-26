@@ -244,7 +244,9 @@ class TestServices(TestCase):
         
         # and it can retrieve the data (for us)
         r = self.client.get('/get-profile/%s' % '0000-0001-8178-9506')
-        self.assertTrue(r.json['profile'] == 'get')
+        self.assertTrue(r.json['profile'] == {u'profile': u'post'})
+        r = self.client.get('/get-profile/%s?reload=true' % '0000-0001-8178-9506')
+        self.assertTrue(r.json['profile'] == {u'profile': u'get'})
         
         # check we can save/get utf-8 data
         u = db.session.query(User).filter_by(orcid_id='0000-0001-8178-9506').first()

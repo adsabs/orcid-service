@@ -145,16 +145,35 @@ def get_profile(orcid_id):
     if not u.access_token:
         return json.dumps({'error': 'We do not have access_token for: %s' % user_id}), 404
     
-    h = {
-         'Accept': 'application/json', 
-         'Authorization': 'Bearer:%s' % u.access_token,
-         'Content-Type': 'application/json'
-         }
+    out = u.toJSON()
     
-    r = requests.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/orcid-profile',
+    payload = dict(request.args)
+    if payload.get('reload', False):
+        h = {
+             'Accept': 'application/json', 
+             'Authorization': 'Bearer %s' % u.access_token,
+             'Content-Type': 'application/json'
+             }
+        
+        r = requests.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/orcid-profile',
                          headers=h)
+        if r.status_code == 200:
+            # update our record (but avoid setting the updated date)
+            j = r.json()
+            orcid_profile = json.dumps(j)
+            db.session.begin_nested()
+            try:
+                db.session.add(u)
+                db.session.commit()
+                out['profile'] = j
+            except exc.IntegrityError as e:
+                db.session.rollback()
+            # per PEP-0249 a transaction is always in progress    
+            db.session.commit()
+        else:
+            raise Exception('Orcid API returned err code (refreshing profile)')
     
-    return r.text, r.status_code
+    return json.dumps(out), 200
 
 
 @advertise(scopes=[], rate_limit = [100, 3600*24])
