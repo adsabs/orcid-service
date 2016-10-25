@@ -30,7 +30,7 @@ ORCID_LOGGING = {
             'formatter': 'default',
             'level': 'INFO',
             'class': 'logging.handlers.TimedRotatingFileHandler',
-            'filename': '/tmp/biblib.app.{}.log'.format(ENVIRONMENT),
+            'filename': '/tmp/orcid.app.{}.log'.format(ENVIRONMENT),
         },
         'console': {
             'formatter': 'default',
