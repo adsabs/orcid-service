@@ -1,3 +1,5 @@
+import os
+
 APP_SECRET_KEY = 'fake'
 VERSION = 'v0.1' # Arbitrary string identifying the service (will be returned in the headers)
 
@@ -12,6 +14,7 @@ SQLALCHEMY_BINDS = {
 }
 SQLALCHEMY_ECHO = False
 
+ENVIRONMENT = os.getenv('ENVIRONMENT', 'staging').lower()
 ORCID_LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -27,7 +30,7 @@ ORCID_LOGGING = {
             'formatter': 'default',
             'level': 'INFO',
             'class': 'logging.handlers.TimedRotatingFileHandler',
-            'filename': '/tmp/orcid_service_app.log',
+            'filename': '/tmp/orcid.app.{}.log'.format(ENVIRONMENT),
         },
         'console': {
             'formatter': 'default',
@@ -37,7 +40,7 @@ ORCID_LOGGING = {
     },
     'loggers': {
         '': {
-            'handlers': ['file', 'console'],
+            'handlers': ['file'],
             'level': 'INFO',
             'propagate': True,
         },
