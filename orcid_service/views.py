@@ -7,6 +7,7 @@ from dateutil import parser
 from sqlalchemy import exc, and_
 from sqlalchemy.orm import load_only
 import json
+import logging
 
 bp = Blueprint('orcid', __name__)
 
@@ -161,9 +162,9 @@ def get_profile(orcid_id):
         if r.status_code == 200:
             # update our record (but avoid setting the updated date)
             j = r.json()
-            orcid_profile = json.dumps(j)
             db.session.begin_nested()
             try:
+                u.profile = json.dumps(j)
                 db.session.add(u)
                 db.session.commit()
                 out['profile'] = j
@@ -229,7 +230,13 @@ def update_profile(orcid_id, data=None):
     if u:
         u.updated = datetime.utcnow()
         if data:
-            u.profile = data
+            try:
+                #verify the data is a valid JSON
+                d = json.loads(data)
+                u.profile = json.dumps(d)
+            except:
+                logging.error('Invalid data passed in for {} (ignoring it)'.format(orcid_id))
+                logging.error(data)
         # save the user
         db.session.begin_nested()
         try:
