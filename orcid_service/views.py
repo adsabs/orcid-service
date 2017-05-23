@@ -62,7 +62,8 @@ def orcid_profile(orcid_id):
     
     # save the profile data (just in case the user revokes access_token, we can still get the update
     # from our local data); however - normally the updater should grab the latest data from orcid
-    update_profile(orcid_id, r.text)
+    if r.status_code == 200:
+        update_profile(orcid_id, r.text)
     
     return r.text, r.status_code
 
