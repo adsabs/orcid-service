@@ -3,6 +3,7 @@
 Web micro service for ORCID
 
 [![Travis Status](https://travis-ci.org/adsabs/orcid-service.png?branch=master)](https://travis-ci.org/adsabs/orcid-service)
+[![Coverage Status](https://coveralls.io/repos/adsabs/orcid-service/badge.svg?branch=master&service=github)](https://coveralls.io/github/adsabs/orcid-service?branch=master)
 
 #Installation:
 
