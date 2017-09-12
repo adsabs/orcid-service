@@ -59,11 +59,11 @@ class TestServices(TestCase):
                 return (201, headers, '') # orcid literally returns empty string
     
         httpretty.register_uri(
-            httpretty.GET, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/orcid-profile',
+            httpretty.GET, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/record',
             content_type='application/json',
             body=request_callback)
         httpretty.register_uri(
-            httpretty.POST, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/orcid-profile',
+            httpretty.POST, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/record',
             content_type='application/json',
             body=request_callback)
 
@@ -97,15 +97,15 @@ class TestServices(TestCase):
                 return (201, headers, json.dumps(orcid_profile.data))
     
         httpretty.register_uri(
-            httpretty.GET, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/orcid-works',
+            httpretty.GET, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/works',
             content_type='application/json',
             body=request_callback)
         httpretty.register_uri(
-            httpretty.POST, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/orcid-works',
+            httpretty.POST, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/works',
             content_type='application/json',
             body=request_callback)
         httpretty.register_uri(
-            httpretty.PUT, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/orcid-works',
+            httpretty.PUT, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/works',
             content_type='application/json',
             body=request_callback)
 
@@ -142,23 +142,23 @@ class TestServices(TestCase):
                 "orcid":"0000-0001-8178-9506",
                 "name":"Roman Chyla"}""")
         httpretty.register_uri(
-            httpretty.GET, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/orcid-profile',
+            httpretty.GET, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/record',
             content_type='application/json',
             body=json.dumps({'profile': 'get'}))
         httpretty.register_uri(
-            httpretty.POST, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/orcid-profile',
+            httpretty.POST, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/record',
             content_type='application/json',
             body=json.dumps({'profile': 'post'}))
         httpretty.register_uri(
-            httpretty.PUT, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/orcid-works',
+            httpretty.PUT, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/works',
             content_type='application/json',
             body='')
         httpretty.register_uri(
-            httpretty.POST, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/orcid-works',
+            httpretty.POST, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/works',
             content_type='application/json',
             body='')
         httpretty.register_uri(
-            httpretty.GET, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/orcid-works',
+            httpretty.GET, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/works',
             content_type='application/json',
             body='')
         
