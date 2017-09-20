@@ -55,10 +55,10 @@ def orcid_profile(orcid_id):
     '''Get/Set /[orcid-id]/orcid-profile - all communication exclusively in JSON'''
     payload, headers = check_request(request)
     if request.method == 'GET':
-        r = requests.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/orcid-profile',
+        r = requests.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/record',
                          headers=headers)
     else:
-        r = requests.post(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/orcid-profile',
+        r = requests.post(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/record',
                          json=payload, headers=headers)
     
     # save the profile data (just in case the user revokes access_token, we can still get the update
@@ -77,14 +77,14 @@ def orcid_works(orcid_id):
     payload, headers = check_request(request)
 
     if request.method == 'GET':
-        r = requests.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/orcid-works', 
+        r = requests.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/works',
                       headers=headers)
     elif request.method == 'PUT':
-        r = requests.put(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/orcid-works', 
+        r = requests.put(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/works',
                       json=payload, headers=headers)
         update_profile(orcid_id)
     elif request.method == 'POST':
-        r = requests.post(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/orcid-works', 
+        r = requests.post(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/works',
                       json=payload, headers=headers)
         update_profile(orcid_id)
         
@@ -157,7 +157,7 @@ def get_profile(orcid_id):
              'Content-Type': 'application/json'
              }
         
-        r = requests.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/orcid-profile',
+        r = requests.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/record',
                          headers=h)
         if r.status_code == 200:
             # update our record (but avoid setting the updated date)
