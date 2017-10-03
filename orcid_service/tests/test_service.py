@@ -5,7 +5,7 @@ import json
 import httpretty
 from orcid_service import app
 from orcid_service.models import db, User
-from stubdata import orcid_profile
+from stubdata import orcid_profile, works_bulk, work_single
 
 class TestServices(TestCase):
 
@@ -87,17 +87,32 @@ class TestServices(TestCase):
             assert request.headers['Accept'] == 'application/json'
             assert request.headers['Content-Type'] == 'application/json'
             
-            if request.method == 'GET':
-                return (200, headers, json.dumps(orcid_profile.data))
-            elif request.method == 'POST':
+            if (request.method == 'GET') & (',' in uri.split('/')[-1]):
+                return (200, headers, json.dumps(works_bulk.data))
+            elif request.method == 'GET':
+                return (200, headers, json.dumps(work_single.data))
+            elif (request.method == 'POST') & (uri.split('/')[-1] == 'work'):
                 assert request.body == json.dumps({'foo': 'bar'})
-                return (201, headers, '') # orcid literally returns empty string
+                return (201, headers, '')  # orcid literally returns empty string for single works post
+            elif (request.method == 'POST') & (uri.split('/')[-1] == 'works'):
+                assert request.body == json.dumps({'foo': 'bar'})
+                return (200, headers, json.dumps(works_bulk.data))
             elif request.method == 'PUT':
                 assert request.body == json.dumps({'foo': 'bar'})
-                return (201, headers, json.dumps(orcid_profile.data))
+                return (200, headers, json.dumps(work_single.data))
+            elif request.method == 'DELETE':
+                return (204, headers, '') # returns empty string
     
         httpretty.register_uri(
-            httpretty.GET, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/works',
+            httpretty.GET, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/work/876970',
+            content_type='application/json',
+            body=request_callback)
+        httpretty.register_uri(
+            httpretty.GET, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/works/513293,513305',
+            content_type='application/json',
+            body=request_callback)
+        httpretty.register_uri(
+            httpretty.POST, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/work',
             content_type='application/json',
             body=request_callback)
         httpretty.register_uri(
@@ -105,29 +120,48 @@ class TestServices(TestCase):
             content_type='application/json',
             body=request_callback)
         httpretty.register_uri(
-            httpretty.PUT, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/works',
+            httpretty.PUT, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/work/876970',
+            content_type='application/json',
+            body=request_callback)
+        httpretty.register_uri(
+            httpretty.DELETE, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/work/876970',
             content_type='application/json',
             body=request_callback)
 
-        r = self.client.get('/0000-0001-8178-9506/orcid-works',
+        r = self.client.get('/0000-0001-8178-9506/orcid-works/876970',
                 headers={'Orcid-Authorization': 'secret'})
-        
         self.assertStatus(r, 200)
-        self.assertIn('orcid-profile', r.json)
-        
-        
+        self.assertIn('short-description', r.json)
+
+        r = self.client.get('/0000-0001-8178-9506/orcid-works/513293,513305',
+                            headers={'Orcid-Authorization': 'secret'})
+        self.assertStatus(r, 200)
+        self.assertIn('bulk', r.json)
+
+        r = self.client.post('/0000-0001-8178-9506/orcid-work',
+                headers={'Orcid-Authorization': 'secret'},
+                data=json.dumps({'foo': 'bar'}),
+                content_type='application/json')
+        self.assertStatus(r, 201)
+
         r = self.client.post('/0000-0001-8178-9506/orcid-works',
-                headers={'Orcid-Authorization': 'secret'},
-                data=json.dumps({'foo': 'bar'}),
-                content_type='application/json')
-        self.assertStatus(r, 201)
+                             headers={'Orcid-Authorization': 'secret'},
+                             data=json.dumps({'foo': 'bar'}),
+                             content_type='application/json')
+        self.assertStatus(r, 200)
+        self.assertIn('bulk', r.json)
         
-        r = self.client.put('/0000-0001-8178-9506/orcid-works',
+        r = self.client.put('/0000-0001-8178-9506/orcid-works/876970',
                 headers={'Orcid-Authorization': 'secret'},
                 data=json.dumps({'foo': 'bar'}),
                 content_type='application/json')
-        self.assertStatus(r, 201)
-        self.assertIn('orcid-profile', r.json)
+        self.assertStatus(r, 200)
+        self.assertIn('short-description', r.json)
+
+        r = self.client.delete('/0000-0001-8178-9506/orcid-works/876970',
+                headers={'Orcid-Authorization': 'secret'})
+        self.assertStatus(r, 204)
+
         
     @httpretty.activate
     def test_persistence(self):
@@ -150,15 +184,15 @@ class TestServices(TestCase):
             content_type='application/json',
             body=json.dumps({'profile': 'post'}))
         httpretty.register_uri(
-            httpretty.PUT, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/works',
+            httpretty.PUT, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/work/123456',
             content_type='application/json',
             body='')
         httpretty.register_uri(
-            httpretty.POST, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/works',
+            httpretty.POST, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/work',
             content_type='application/json',
             body='')
         httpretty.register_uri(
-            httpretty.GET, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/works',
+            httpretty.GET, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/work/123456',
             content_type='application/json',
             body='')
         
@@ -196,14 +230,14 @@ class TestServices(TestCase):
         
         # and when they access orcid-works (and modify something)
         updated = u.updated
-        r = self.client.get('/0000-0001-8178-9506/orcid-works',
+        r = self.client.get('/0000-0001-8178-9506/orcid-works/123456',
                 headers={'Orcid-Authorization': 'secret'})
         self.assertTrue(u.updated == updated)
         self.assertTrue(str(u.profile) == json.dumps({'profile': 'post'}))
         
         # we do not update profile (only timestamp)
         updated = u.updated
-        r = self.client.put('/0000-0001-8178-9506/orcid-works',
+        r = self.client.put('/0000-0001-8178-9506/orcid-works/123456',
                 headers={'Orcid-Authorization': 'secret'},
                 data=json.dumps({'foo': 'bar'}),
                 content_type='application/json')
@@ -211,7 +245,7 @@ class TestServices(TestCase):
         self.assertTrue(str(u.profile) == json.dumps({'profile': 'post'}))
         
         updated = u.updated
-        r = self.client.post('/0000-0001-8178-9506/orcid-works',
+        r = self.client.post('/0000-0001-8178-9506/orcid-work',
                 headers={'Orcid-Authorization': 'secret'},
                 data=json.dumps({'foo': 'bar'}),
                 content_type='application/json')

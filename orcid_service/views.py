@@ -70,25 +70,55 @@ def orcid_profile(orcid_id):
 
 
 @advertise(scopes=[], rate_limit = [1000, 3600*24])
-@bp.route('/<orcid_id>/orcid-works', methods=['GET', 'POST', 'PUT'])
-def orcid_works(orcid_id):
+@bp.route('/<orcid_id>/orcid-works/<putcode>', methods=['GET', 'PUT', 'DELETE'])
+def orcid_works(orcid_id,putcode):
     '''Get/Set /[orcid-id]/orcid-works - all communication exclusively in JSON'''
 
     payload, headers = check_request(request)
 
     if request.method == 'GET':
-        r = requests.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/works',
-                      headers=headers)
+        if ',' in putcode:
+            r = requests.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/works/' + putcode,
+                             headers=headers)
+        else:
+            r = requests.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/work/' + putcode,
+                          headers=headers)
     elif request.method == 'PUT':
-        r = requests.put(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/works',
+        r = requests.put(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/work/' + putcode,
                       json=payload, headers=headers)
         update_profile(orcid_id)
-    elif request.method == 'POST':
-        r = requests.post(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/works',
-                      json=payload, headers=headers)
+    elif request.method == 'DELETE':
+        r = requests.delete(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/work/' + putcode,
+                      headers=headers)
         update_profile(orcid_id)
-        
-        
+
+    return r.text, r.status_code
+
+
+@advertise(scopes=[], rate_limit=[1000, 3600 * 24])
+@bp.route('/<orcid_id>/orcid-work', methods=['POST'])
+def orcid_work_add_single(orcid_id):
+    '''Get/Set /[orcid-id]/orcid-works - all communication exclusively in JSON'''
+
+    payload, headers = check_request(request)
+
+    r = requests.post(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/work',
+                        json=payload, headers=headers)
+    update_profile(orcid_id)
+
+    return r.text, r.status_code
+
+@advertise(scopes=[], rate_limit=[1000, 3600 * 24])
+@bp.route('/<orcid_id>/orcid-works', methods=['POST'])
+def orcid_work_add_multiple(orcid_id):
+    '''Get/Set /[orcid-id]/orcid-works - all communication exclusively in JSON'''
+
+    payload, headers = check_request(request)
+
+    r = requests.post(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/works',
+                        json=payload, headers=headers)
+    update_profile(orcid_id)
+
     return r.text, r.status_code
 
 
