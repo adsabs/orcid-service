@@ -27,6 +27,9 @@ def get_access_token():
     }
     #print current_app.config['ORCID_OAUTH_ENDPOINT'], data, headers
     r = requests.post(current_app.config['ORCID_OAUTH_ENDPOINT'], data=data, headers=headers)
+    if r.status_code != 200:
+        logging.error('For ORCID code {}, there was an error getting the token from the ORCID API.'.
+                      format(payload['code'][0]))
     
     # update/create user account
     data = r.json()
