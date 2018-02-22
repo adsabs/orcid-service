@@ -34,7 +34,7 @@ def get_access_token():
     # update/create user account
     data = r.json()
     if 'orcid' in data:
-        u = db.session.query(User).filter_by(orcid_id=data['orcid']).first()
+        u = db.session.query(User).filter_by(orcid_id=data['orcid']).options(load_only(User.orcid_id)).first()
         if not u:
             u = User(orcid_id=data['orcid'], created=datetime.utcnow())
         u.updated = datetime.utcnow()
@@ -228,7 +228,7 @@ def preferences(orcid_id):
     access_token = headers['Authorization'][7:] # remove the 'Bearer:' thing
     
     if request.method == 'GET':
-        u = db.session.query(User).filter(and_(User.orcid_id==orcid_id, User.access_token==access_token)).first()
+        u = db.session.query(User).filter(and_(User.orcid_id==orcid_id, User.access_token==access_token)).options(load_only(User.orcid_id)).first()
         if not u:
             return '{}', 404 # not found
         return u.info or '{}', 200
@@ -236,7 +236,7 @@ def preferences(orcid_id):
         d = json.dumps(payload)
         if len(d) > current_app.config.get('MAX_ALLOWED_JSON_SIZE', 1000):
             return json.dumps({'msg': 'You have exceeded the allowed storage limit, no data was saved'}), 400
-        u = db.session.query(User).filter(and_(User.orcid_id==orcid_id, User.access_token==access_token)).first()
+        u = db.session.query(User).filter(and_(User.orcid_id==orcid_id, User.access_token==access_token)).options(load_only(User.orcid_id)).first()
         if not u:
             return json.dumps({'error': 'We do not have a record for: %s' % orcid_id}), 404
     
@@ -253,20 +253,18 @@ def preferences(orcid_id):
         # per PEP-0249 a transaction is always in progress    
         db.session.commit()
         return d, 200
-    
-    
+
 def update_profile(orcid_id, data=None):
     """Inserts data into the user record and updates the 'updated'
     column with the most recent timestamp"""
     
-    u = db.session.query(User).filter_by(orcid_id=orcid_id).first()
+    u = db.session.query(User).filter_by(orcid_id=orcid_id).options(load_only(User.orcid_id)).first()
     if u:
         u.updated = datetime.utcnow()
         if data:
             try:
                 #verify the data is a valid JSON
-                d = json.loads(data)
-                u.profile = json.dumps(d)
+                u.profile = json.dumps(json.loads(data))
             except:
                 logging.error('Invalid data passed in for {} (ignoring it)'.format(orcid_id))
                 logging.error(data)
@@ -280,7 +278,7 @@ def update_profile(orcid_id, data=None):
         # per PEP-0249 a transaction is always in progress    
         db.session.commit()
         
-        
+
 def check_request(request):
     
     headers = dict(request.headers)
