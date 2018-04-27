@@ -5,22 +5,21 @@
 
     Models for the users (users) of AdsWS
 """
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.orm import synonym
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, String, TIMESTAMP, Text
 import json
 
-db = SQLAlchemy() # must be run in the context of a flask application
+Base = declarative_base()
 
-class User(db.Model):
-    __bind_key__ = 'orcid'
+class User(Base):
     __tablename__ = 'users'
     
-    orcid_id = db.Column(db.String(255), primary_key=True)
-    access_token = db.Column(db.String(255))
-    created = db.Column(db.TIMESTAMP)
-    updated = db.Column(db.TIMESTAMP)
-    profile = db.Column(db.Text)
-    info = db.Column(db.Text)
+    orcid_id = Column(String(255), primary_key=True)
+    access_token = Column(String(255))
+    created = Column(TIMESTAMP)
+    updated = Column(TIMESTAMP)
+    profile = Column(Text)
+    info = Column(Text)
     
     def toJSON(self):
         """Returns value formatted as python dict."""

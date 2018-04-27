@@ -4,25 +4,27 @@ import unittest
 import json
 import httpretty
 from orcid_service import app
-from orcid_service.models import db, User
+from orcid_service.models import User, Base
 from stubdata import orcid_profile, works_bulk, work_single
 
 class TestServices(TestCase):
 
     def create_app(self):
         '''Start the wsgi application'''
-        a = app.create_app({
-            'SQLALCHEMY_BINDS' : {
-                'orcid':        'sqlite:///'
-            }
-           })
-        db.create_all(app=a)
+        a = app.create_app()
         return a
+
+    def setUp(self):
+        Base.metadata.create_all(bind=self.app.db.engine)
+
+    def tearDown(self):
+        self.app.db.session.remove()
+        self.app.db.drop_all()
 
     @httpretty.activate
     def test_exchangeOAuthCode(self):
-        client_id = self.app.config['ORCID_CLIENT_ID']
-        client_secret = self.app.config['ORCID_CLIENT_SECRET']
+        client_id = self.app.config.get('ORCID_CLIENT_ID')
+        client_secret = self.app.config.get('ORCID_CLIENT_SECRET')
         def request_callback(request, uri, headers):
             assert request.headers['Accept'] == 'application/json'
             assert request.parsed_body['code'] == [u'exWxfg']
@@ -35,9 +37,8 @@ class TestServices(TestCase):
                 "scope":"/orcid-profile/read-limited /orcid-works/create /orcid-works/update",
                 "orcid":"0000-0001-8178-9506",
                 "name":"Roman Chyla"}""")
-    
         httpretty.register_uri(
-            httpretty.POST, self.app.config['ORCID_OAUTH_ENDPOINT'],
+            httpretty.POST, self.app.config.get('ORCID_OAUTH_ENDPOINT'),
             content_type='application/json',
             body=request_callback)
 
@@ -195,66 +196,90 @@ class TestServices(TestCase):
             httpretty.GET, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/work/123456',
             content_type='application/json',
             body='')
+
+        with self.app.session_scope() as session:
+            u = session.query(User).filter_by(orcid_id='0000-0001-8178-9506').first()
+            if u:
+                session.delete(u)
+                session.commit()
         
-        u = db.session.query(User).filter_by(orcid_id='0000-0001-8178-9506').first()
-        if u:
-            db.session.delete(u)
-            db.session.commit()
-        
-        # at the beginning, there is no user record
-        u = db.session.query(User).filter_by(orcid_id='0000-0001-8178-9506').first()
-        self.assertTrue(u is None)
+            # at the beginning, there is no user record
+            u = session.query(User).filter_by(orcid_id='0000-0001-8178-9506').first()
+            self.assertTrue(u is None)
         
         # everybody has to pass always through the access-token endpoint
         r = self.client.get(url_for('orcid.get_access_token'), query_string={'code': 'exWxfg'})
-        
-        # which creates the user record
-        u = db.session.query(User).filter_by(orcid_id='0000-0001-8178-9506').first()
-        self.assertTrue(u.updated >= u.created)
-        self.assertTrue(u.profile is None)
-        
-        # whenever they request a profile (we'll save it into our cache)
-        updated = u.updated
+
+        with self.app.session_scope() as session:
+            # which creates the user record
+            u = session.query(User).filter_by(orcid_id='0000-0001-8178-9506').first()
+            self.assertTrue(u.updated >= u.created)
+            self.assertTrue(u.profile is None)
+
+            # whenever they request a profile (we'll save it into our cache)
+            updated = u.updated
+
         r = self.client.get('/0000-0001-8178-9506/orcid-profile',
                 headers={'Orcid-Authorization': 'secret'})
-        self.assertTrue(u.updated > updated)
-        self.assertTrue(str(u.profile) == json.dumps({'profile': 'get'}))
 
-        updated = u.updated        
+        with self.app.session_scope() as session:
+            u = session.query(User).filter_by(orcid_id='0000-0001-8178-9506').first()
+            self.assertTrue(u.updated > updated)
+            self.assertTrue(str(u.profile) == json.dumps({'profile': 'get'}))
+
+            updated = u.updated
+
         r = self.client.post('/0000-0001-8178-9506/orcid-profile',
                 headers={'Orcid-Authorization': 'secret'},
                 data=json.dumps({'foo': 'bar'}),
                 content_type='application/json')
-        self.assertTrue(u.updated > updated)
-        self.assertTrue(str(u.profile) == json.dumps({'profile': 'post'}))
-        
-        # and when they access orcid-works (and modify something)
-        updated = u.updated
+
+        with self.app.session_scope() as session:
+            u = session.query(User).filter_by(orcid_id='0000-0001-8178-9506').first()
+            self.assertTrue(u.updated > updated)
+            self.assertTrue(str(u.profile) == json.dumps({'profile': 'post'}))
+
+            # and when they access orcid-works (and modify something)
+            updated = u.updated
+
         r = self.client.get('/0000-0001-8178-9506/orcid-works/123456',
                 headers={'Orcid-Authorization': 'secret'})
-        self.assertTrue(u.updated == updated)
-        self.assertTrue(str(u.profile) == json.dumps({'profile': 'post'}))
+
+        with self.app.session_scope() as session:
+            u = session.query(User).filter_by(orcid_id='0000-0001-8178-9506').first()
+            self.assertTrue(u.updated == updated)
+            self.assertTrue(str(u.profile) == json.dumps({'profile': 'post'}))
         
-        # we do not update profile (only timestamp)
-        updated = u.updated
+            # we do not update profile (only timestamp)
+            updated = u.updated
+
         r = self.client.put('/0000-0001-8178-9506/orcid-works/123456',
                 headers={'Orcid-Authorization': 'secret'},
                 data=json.dumps({'foo': 'bar'}),
                 content_type='application/json')
-        self.assertTrue(u.updated > updated)
-        self.assertTrue(str(u.profile) == json.dumps({'profile': 'post'}))
+
+        with self.app.session_scope() as session:
+            u = session.query(User).filter_by(orcid_id='0000-0001-8178-9506').first()
+            self.assertTrue(u.updated > updated)
+            self.assertTrue(str(u.profile) == json.dumps({'profile': 'post'}))
         
-        updated = u.updated
+            updated = u.updated
+
         r = self.client.post('/0000-0001-8178-9506/orcid-work',
                 headers={'Orcid-Authorization': 'secret'},
                 data=json.dumps({'foo': 'bar'}),
                 content_type='application/json')
-        self.assertTrue(u.updated > updated)
-        self.assertTrue(str(u.profile) == json.dumps({'profile': 'post'}))
-        
-        
+
+        with self.app.session_scope() as session:
+            u = session.query(User).filter_by(orcid_id='0000-0001-8178-9506').first()
+            self.assertTrue(u.updated > updated)
+            self.assertTrue(str(u.profile) == json.dumps({'profile': 'post'}))
+
+            updated = u.updated.isoformat()
+            updated_plus = u.updated.replace(microsecond=u.updated.microsecond + 1).isoformat()
+
         # check we can get export the data
-        r = self.client.get('/export/%s' % u.updated.isoformat(),
+        r = self.client.get('/export/%s' % updated,
                 headers={'Orcid-Authorization': 'secret'})
         self.assertTrue(len(r.json) == 1)
         self.assertTrue(r.json[0]['created'])
@@ -262,11 +287,11 @@ class TestServices(TestCase):
         self.assertTrue(r.json[0]['updated'])
         self.assertTrue(r.json[0]['profile'])
         
-        r = self.client.get('/export/%s' % u.updated.replace(microsecond=u.updated.microsecond + 1).isoformat(),
+        r = self.client.get('/export/%s' % updated_plus,
                 headers={'Orcid-Authorization': 'secret'})
         self.assertTrue(len(r.json) == 0)
         
-        r = self.client.get('/export/%s' % u.updated.isoformat(),
+        r = self.client.get('/export/%s' % updated,
                 query_string={'fields': ['created', 'orcid_id']},
                 headers={'Orcid-Authorization': 'secret'})
         self.assertTrue(len(r.json) == 1)
@@ -281,13 +306,13 @@ class TestServices(TestCase):
         self.assertTrue(r.json['profile'] == {u'profile': u'post'})
         r = self.client.get('/get-profile/%s?reload=true' % '0000-0001-8178-9506')
         self.assertTrue(r.json['profile'] == {u'profile': u'get'})
-        
+
         # check we can save/get utf-8 data
-        u = db.session.query(User).filter_by(orcid_id='0000-0001-8178-9506').first()
+        u = session.query(User).filter_by(orcid_id='0000-0001-8178-9506').first()
         u.profile = u'{"foo": "\xe9"}'
-        db.session.commit()
-        
-        r = self.client.get('/export/%s' % u.updated.isoformat(),
+        session.commit()
+
+        r = self.client.get('/export/%s' % updated,
                 headers={'Orcid-Authorization': 'secret'})
         self.assertTrue(len(r.json) == 1)
         self.assertTrue(r.json[0]['created'])
@@ -296,13 +321,14 @@ class TestServices(TestCase):
 
     def test_store_preferences(self):
         '''Tests the ability to store data'''
-        u = db.session.query(User).filter_by(access_token='keyx').first()
-        if u:
-            db.session.delete(u)
-            db.session.commit()
-        u = User(orcid_id='test', access_token='keyx')
-        db.session.add(u)
-        db.session.commit()
+        with self.app.session_scope() as session:
+            u = session.query(User).filter_by(access_token='keyx').first()
+            if u:
+                session.delete(u)
+                session.commit()
+            u = User(orcid_id='test', access_token='keyx')
+            session.add(u)
+            session.commit()
             
         # wrong request (missing Orcid-Authorization)
         r = self.client.get(url_for('orcid.preferences', orcid_id='test'),
