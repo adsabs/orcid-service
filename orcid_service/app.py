@@ -5,10 +5,7 @@ from flask.ext.discoverer import Discoverer
 
 def create_app(**config):
 
-    if config:
-        app = ADSFlask(__name__, static_folder=None, local_config=config)
-    else:
-        app = ADSFlask(__name__, static_folder=None)
+    app = ADSFlask(__name__, static_folder=None, local_config=config or {})
 
     app.url_map.strict_slashes = False
     
