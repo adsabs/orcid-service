@@ -1,5 +1,4 @@
 from werkzeug.serving import run_simple
-from werkzeug.wsgi import DispatcherMiddleware
 from orcid_service import app
 
 application = app.create_app()

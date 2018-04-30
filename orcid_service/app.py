@@ -1,35 +1,19 @@
-
-import logging.config
-from flask import Flask
+from werkzeug.serving import run_simple
+from adsmutils import ADSFlask
 from views import bp
-from flask.ext.consulate import Consul, ConsulConnectionError
 from flask.ext.discoverer import Discoverer
-from flask.ext.sqlalchemy import SQLAlchemy
-from .models import db
 
-def create_app(config=None):
-    app = Flask(__name__, static_folder=None)
+def create_app(**config):
+
+    app = ADSFlask(__name__, static_folder=None, local_config=config or {})
+
     app.url_map.strict_slashes = False
-
-    Discoverer(app)
-    Consul(app)  # load_config expects consul to be registered
-    load_config(app, config)
-    db.init_app(app)
-    logging.config.dictConfig(
-        app.config['ORCID_LOGGING']
-    )
     
     ## pysqlite driver breaks transactions, we have to apply some hacks as per
     ## http://docs.sqlalchemy.org/en/rel_0_9/dialects/sqlite.html#pysqlite-serializable
-    
-    if 'sqlite' in (app.config.get('SQLALCHEMY_BINDS') or {'orcid':''})['orcid']:
+    if 'sqlite' in app.config.get('SQLALCHEMY_DATABASE_URI', None):
         from sqlalchemy import event
-        
-        binds = app.config.get('SQLALCHEMY_BINDS')
-        if binds and 'orcid' in binds:
-            engine = db.get_engine(app, bind=(app.config.get('SQLALCHEMY_BINDS') and 'orcid'))
-        else:
-            engine = db.get_engine(app)
+        engine = app.db.engine
         
         @event.listens_for(engine, "connect")
         def do_connect(dbapi_connection, connection_record):
@@ -43,31 +27,10 @@ def create_app(config=None):
             conn.execute("BEGIN")
     
     app.register_blueprint(bp)
+
+    discoverer = Discoverer(app)
+
     return app
 
-
-def load_config(app, config=None):
-    """
-    Loads configuration in the following order:
-        1. config.py
-        2. consul (ignore failures)
-        3. local_config.py (ignore failures)
-        4. local parameters passed in 'config'
-    :param app: flask.Flask application instance
-    :return: None
-    """
-
-    app.config.from_pyfile('config.py')
-
-    try:
-        app.extensions['consul'].apply_remote_config()
-    except ConsulConnectionError, e:
-        app.logger.warning("Could not apply config from consul: {}".format(e))
-
-    try:
-        app.config.from_pyfile('local_config.py')
-    except IOError:
-        app.logger.warning("Could not load local_config.py")
-                
-    if config:
-        app.config.update(config)
+if __name__ == "__main__":
+    run_simple('0.0.0.0', 5000, create_app(), use_reloader=False, use_debugger=False)

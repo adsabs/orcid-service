@@ -1,6 +1,6 @@
 from flask import current_app, request, Blueprint
 from flask.ext.discoverer import advertise
-from .models import db, User
+from .models import User
 import requests
 from datetime import datetime
 from dateutil import parser
@@ -30,24 +30,25 @@ def get_access_token():
     if r.status_code != 200:
         logging.error('For ORCID code {}, there was an error getting the token from the ORCID API.'.
                       format(payload['code'][0]))
-    
+
     # update/create user account
     data = r.json()
     if 'orcid' in data:
-        u = db.session.query(User).filter_by(orcid_id=data['orcid']).options(load_only(User.orcid_id)).first()
-        if not u:
-            u = User(orcid_id=data['orcid'], created=datetime.utcnow())
-        u.updated = datetime.utcnow()
-        u.access_token = data['access_token']
-        # save the user
-        db.session.begin_nested()
-        try:
-            db.session.add(u)
-            db.session.commit()
-        except exc.IntegrityError as e:
-            db.session.rollback()
-        # per PEP-0249 a transaction is always in progress    
-        db.session.commit()
+        with current_app.session_scope() as session:
+            u = session.query(User).filter_by(orcid_id=data['orcid']).options(load_only(User.orcid_id)).first()
+            if not u:
+                u = User(orcid_id=data['orcid'], created=datetime.utcnow())
+            u.updated = datetime.utcnow()
+            u.access_token = data['access_token']
+            # save the user
+            session.begin_nested()
+            try:
+                session.add(u)
+                session.commit()
+            except exc.IntegrityError as e:
+                session.rollback()
+            # per PEP-0249 a transaction is always in progress
+            session.commit()
     
     return r.text, r.status_code
 
@@ -145,25 +146,26 @@ def export(iso_datestring):
     # poorman's version of paging, but it works because the time resolution is in 
     # microseconds
     output = []
-    recs = db.session.query(User).filter(User.updated >= latest_point) \
-        .order_by(User.updated.asc()) \
-        .limit(current_app.config.get('MAX_PROFILES_RETURNED', 10)) \
-        .options(load_only(*fields_to_load)) \
-        .all()
+    with current_app.session_scope() as session:
+        recs = session.query(User).filter(User.updated >= latest_point) \
+            .order_by(User.updated.asc()) \
+            .limit(current_app.config.get('MAX_PROFILES_RETURNED', 10)) \
+            .options(load_only(*fields_to_load)) \
+            .all()
 
-    for r in recs:
-        o = {}
-        for k in fields_to_load:
-            v = getattr(r, k)
-            if k == 'profile':
-                try:
-                    v = json.loads(unicode(v))
-                except:
-                    v = None
-            if hasattr(v, 'isoformat'):
-                v = v.isoformat()
-            o[k] = v
-        output.append(o)
+        for r in recs:
+            o = {}
+            for k in fields_to_load:
+                v = getattr(r, k)
+                if k == 'profile':
+                    try:
+                        v = json.loads(unicode(v))
+                    except:
+                        v = None
+                if hasattr(v, 'isoformat'):
+                    v = v.isoformat()
+                o[k] = v
+            output.append(o)
     
     return json.dumps(output), 200
 
@@ -172,41 +174,41 @@ def export(iso_datestring):
 @bp.route('/get-profile/<orcid_id>', methods=['GET'])
 def get_profile(orcid_id):
     '''Fetches the latest orcid-profile'''
+    with current_app.session_scope() as session:
+        u = session.query(User).filter_by(orcid_id=orcid_id).first()
+        if not u:
+            return json.dumps({'error': 'We do not have a record for: %s' % user_id}), 404
+
+        if not u.access_token:
+            return json.dumps({'error': 'We do not have access_token for: %s' % user_id}), 404
+
+        out = u.toJSON()
     
-    u = db.session.query(User).filter_by(orcid_id=orcid_id).first()
-    if not u:
-        return json.dumps({'error': 'We do not have a record for: %s' % user_id}), 404
-    
-    if not u.access_token:
-        return json.dumps({'error': 'We do not have access_token for: %s' % user_id}), 404
-    
-    out = u.toJSON()
-    
-    payload = dict(request.args)
-    if payload.get('reload', False):
-        h = {
-             'Accept': 'application/json', 
-             'Authorization': 'Bearer %s' % u.access_token,
-             'Content-Type': 'application/json'
-             }
-        
-        r = requests.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/record',
-                         headers=h)
-        if r.status_code == 200:
-            # update our record (but avoid setting the updated date)
-            j = r.json()
-            db.session.begin_nested()
-            try:
-                u.profile = json.dumps(j)
-                db.session.add(u)
-                db.session.commit()
-                out['profile'] = j
-            except exc.IntegrityError as e:
-                db.session.rollback()
-            # per PEP-0249 a transaction is always in progress    
-            db.session.commit()
-        else:
-            raise Exception('Orcid API returned err code (refreshing profile)')
+        payload = dict(request.args)
+        if payload.get('reload', False):
+            h = {
+                 'Accept': 'application/json',
+                 'Authorization': 'Bearer %s' % u.access_token,
+                 'Content-Type': 'application/json'
+                 }
+
+            r = requests.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/record',
+                             headers=h)
+            if r.status_code == 200:
+                # update our record (but avoid setting the updated date)
+                j = r.json()
+                session.begin_nested()
+                try:
+                    u.profile = json.dumps(j)
+                    session.add(u)
+                    session.commit()
+                    out['profile'] = j
+                except exc.IntegrityError as e:
+                    session.rollback()
+                # per PEP-0249 a transaction is always in progress
+                session.commit()
+            else:
+                raise Exception('Orcid API returned err code (refreshing profile)')
     
     return json.dumps(out), 200
 
@@ -228,55 +230,58 @@ def preferences(orcid_id):
     access_token = headers['Authorization'][7:] # remove the 'Bearer:' thing
     
     if request.method == 'GET':
-        u = db.session.query(User).filter(and_(User.orcid_id==orcid_id, User.access_token==access_token)).options(load_only(User.orcid_id)).first()
-        if not u:
-            return '{}', 404 # not found
-        return u.info or '{}', 200
+        with current_app.session_scope() as session:
+            u = session.query(User).filter(and_(User.orcid_id==orcid_id, User.access_token==access_token)).options(load_only(User.orcid_id)).first()
+            if not u:
+                return '{}', 404 # not found
+            return u.info or '{}', 200
     elif request.method == 'POST':
         d = json.dumps(payload)
         if len(d) > current_app.config.get('MAX_ALLOWED_JSON_SIZE', 1000):
             return json.dumps({'msg': 'You have exceeded the allowed storage limit, no data was saved'}), 400
-        u = db.session.query(User).filter(and_(User.orcid_id==orcid_id, User.access_token==access_token)).options(load_only(User.orcid_id)).first()
-        if not u:
-            return json.dumps({'error': 'We do not have a record for: %s' % orcid_id}), 404
-    
-        u.info = d
-    
-        db.session.begin_nested()
-        try:
-            db.session.merge(u)
-            db.session.commit()
-        except exc.IntegrityError:
-            db.session.rollback()
-            return json.dumps({'msg': 'We have hit a db error! The world is crumbling all around... (eh, btw, your data was not saved)'}), 500
-    
-        # per PEP-0249 a transaction is always in progress    
-        db.session.commit()
+        with current_app.session_scope() as session:
+            u = session.query(User).filter(and_(User.orcid_id==orcid_id, User.access_token==access_token)).options(load_only(User.orcid_id)).first()
+            if not u:
+                return json.dumps({'error': 'We do not have a record for: %s' % orcid_id}), 404
+
+            u.info = d
+
+            session.begin_nested()
+            try:
+                session.merge(u)
+                session.commit()
+            except exc.IntegrityError:
+                session.rollback()
+                return json.dumps({'msg': 'We have hit a db error! The world is crumbling all around... (eh, btw, your data was not saved)'}), 500
+
+            # per PEP-0249 a transaction is always in progress
+            session.commit()
         return d, 200
 
 def update_profile(orcid_id, data=None):
     """Inserts data into the user record and updates the 'updated'
     column with the most recent timestamp"""
-    
-    u = db.session.query(User).filter_by(orcid_id=orcid_id).options(load_only(User.orcid_id)).first()
-    if u:
-        u.updated = datetime.utcnow()
-        if data:
+
+    with current_app.session_scope() as session:
+        u = session.query(User).filter_by(orcid_id=orcid_id).options(load_only(User.orcid_id)).first()
+        if u:
+            u.updated = datetime.utcnow()
+            if data:
+                try:
+                    #verify the data is a valid JSON
+                    u.profile = json.dumps(json.loads(data))
+                except:
+                    logging.error('Invalid data passed in for {} (ignoring it)'.format(orcid_id))
+                    logging.error(data)
+            # save the user
+            session.begin_nested()
             try:
-                #verify the data is a valid JSON
-                u.profile = json.dumps(json.loads(data))
-            except:
-                logging.error('Invalid data passed in for {} (ignoring it)'.format(orcid_id))
-                logging.error(data)
-        # save the user
-        db.session.begin_nested()
-        try:
-            db.session.add(u)
-            db.session.commit()
-        except exc.IntegrityError as e:
-            db.session.rollback()
-        # per PEP-0249 a transaction is always in progress    
-        db.session.commit()
+                session.add(u)
+                session.commit()
+            except exc.IntegrityError as e:
+                session.rollback()
+            # per PEP-0249 a transaction is always in progress
+            session.commit()
         
 
 def check_request(request):
