@@ -1,3 +1,4 @@
+LOG_STDOUT = True
 APP_SECRET_KEY = 'fake'
 VERSION = 'v0.1' # Arbitrary string identifying the service (will be returned in the headers)
 
