@@ -35,14 +35,19 @@ def get_access_token():
     if 'orcid' in data:
         with current_app.session_scope() as session:
             u = session.query(User).filter_by(orcid_id=data['orcid']).options(load_only(User.orcid_id)).first()
+            p = session.query(Profile).filter_by(orcid_id=data['orcid']).options(load_only(Profile.orcid_id)).first()
             if not u:
                 u = User(orcid_id=data['orcid'], created=datetime.utcnow())
+            if not p:
+                p = Profile(orcid_id=data['orcid'], created=datetime.utcnow())
             u.updated = datetime.utcnow()
+            p. updated = datetime.utcnow()
             u.access_token = data['access_token']
             # save the user
             session.begin_nested()
             try:
                 session.add(u)
+                session.add(p)
                 session.commit()
             except exc.IntegrityError as e:
                 session.rollback()
@@ -71,6 +76,30 @@ def orcid_profile(orcid_id):
 
     return r.text, r.status_code
 
+@advertise(scopes=[], rate_limit = [1000, 3600 * 24])
+@bp.route('/<orcid_id>/orcid-profile/simple', methods=['GET'])
+def orcid_profile_simple(orcid_id):
+    '''Get /[orcid-id]/orcid-profile/simple - returns bibcodes and status - all communication exclusively in JSON'''
+
+    payload, headers = check_request(request)
+    with current_app.session_scope() as session:
+        profile = session.query(Profile).filter_by(orcid_id=orcid_id).one()
+        bibcodes, statuses = profile.get_bibcodes()
+        records = dict(zip(bibcodes, statuses))
+
+    return json.dumps(records), 200
+
+@advertise(scopes=[], rate_limit=[1000, 3600 * 24])
+@bp.route('/<orcid_id>/orcid-profile/full', methods=['GET'])
+def orcid_profile_simple(orcid_id):
+    '''Get /[orcid-id]/orcid-profile/full - returns all records and saved metadata - all communication exclusively in JSON'''
+
+    payload, headers = check_request(request)
+    with current_app.session_scope() as session:
+        profile = session.query(Profile).filter_by(orcid_id=orcid_id).one()
+        records = profile.bibcodes()
+
+    return json.dumps(records), 200
 
 @advertise(scopes=[], rate_limit = [1000, 3600*24])
 @bp.route('/<orcid_id>/orcid-works/<putcode>', methods=['GET', 'PUT', 'DELETE'])
@@ -123,7 +152,6 @@ def orcid_work_add_multiple(orcid_id):
     update_profile(orcid_id)
 
     return r.text, r.status_code
-
 
 @advertise(scopes=['ads-consumer:orcid'], rate_limit = [1000, 3600*24])
 @bp.route('/export/<iso_datestring>', methods=['GET'])
@@ -257,6 +285,35 @@ def preferences(orcid_id):
             session.commit()
         return d, 200
 
+@advertise(scopes=['ads-consumer:orcid'], rate_limit = [100, 3600*24])
+@bp.route('/update-status/<orcid_id>', methods=['GET', 'POST'])
+def update_status(orcid_id):
+    """Gets/sets bibcode statuses for a given ORCID ID"""
+
+    payload, headers = check_request(request)
+
+    if request.method == 'GET':
+        with current_app.session_scope() as session:
+            profile = session.query(Profile).filter_by(orcid_id=orcid_id).one()
+            recs = profile.bibcodes()
+            statuses = profile.get_nested(recs,'status')
+            records = dict(zip(recs, statuses))
+
+        return json.dumps(records), 200
+
+    if request.method == 'POST':
+        if 'bibcodes' not in payload:
+            raise Exception('Bibcodes are missing')
+        if 'status' not in payload:
+            raise Exception('Status is missing')
+        with current_app.session_scope() as session:
+            profile = session.query(Profile).filter_by(orcid_id=orcid_id).one()
+            for status in payload['status']:
+                profile.update_status(payload['bibcodes'],status)
+            records = dict(zip(payload['bibcodes'], [payload['status']] * len(payload['bibcode'])))
+
+        return json.dumps(records), 200
+
 def update_profile(orcid_id, data=None):
     """Inserts data into the user record and updates the 'updated'
     column with the most recent timestamp"""
@@ -282,6 +339,51 @@ def update_profile(orcid_id, data=None):
             # per PEP-0249 a transaction is always in progress
             session.commit()
 
+def update_profile_simple(orcid_id, data=None, force=False):
+    """Update local db with ORCID profile"""
+    with current_app.session_scope() as session:
+        profile = session.query(Profile).filter_by(orcid_id=orcid_id).one()
+        if profile:
+            # data assumed to come from ORCID API /works endpoint
+            if data:
+                # convert milliseconds since epoch to seconds since epoch
+                last_modified = data['last-modified-date']['value']
+                last_modified /= 1000.
+                if force or (profile.updated < datetime.fromtimestamp(last_modified)):
+                    works = data['group']
+                    new_recs = {}
+                    update_recs = {}
+                    orcid_recs = []
+                    current_recs = profile.bibcodes.keys()
+                    for work in works:
+                        try:
+                            id, rec = find_record(work)
+                        except:
+                            continue
+                        if id not in current_recs:
+                            new_recs.update(rec)
+                        if id in current_recs and (profile.updated < rec[id]['updated']):
+                            # if bibcode already in the profile, keep its status
+                            rec[id]['status'] = profile[id]['status']
+                            update_recs.update(rec)
+                        orcid_recs.append(id)
+                    profile.add_records(new_recs)
+                    profile.add_records(update_recs)
+                    # remove records from the profile that aren't in the ORCID set
+                    remove_recs = list(set(current_recs)-set(orcid_recs))
+                    profile.remove_bibcodes(remove_recs)
+            profile.updated = datetime.utcnow()
+            # save the user
+            session.begin_nested()
+            try:
+                session.add(profile)
+                session.commit()
+            except exc.IntegrityError as e:
+                session.rollback()
+            # per PEP-0249 a transaction is always in progress
+            session.commit()
+        else:
+            logging.error('ORCID profile {} does not exist'.format(orcid_id))
 
 def check_request(request):
 
@@ -307,3 +409,83 @@ def check_request(request):
         payload.update(dict(request.form))
 
     return (payload, h)
+
+def find_record(work):
+    """
+    Given a work in an ORCID XML profile, extract some metadata
+    """
+
+    updated = work['last-modified-date']['value']
+    try:
+        tmp = work['external-ids']['external-id'][0]['external-id-type']
+    except IndexError:
+        # no ID is given, so get the putcode and the metadata from the first record
+        id = work['work-summary'][0]['put-code']
+        status = 'not in ADS'
+        title = work['work-summary'][0]['title']['value']
+        try:
+            pubyear = work['work-summary'][0]['publication-date']['year']['value']
+        except TypeError:
+            pubyear = None
+        try:
+            pubmonth = work['work-summary'][0]['publication-date']['month']['value']
+        except TypeError:
+            pubmonth = None
+
+        return id, {id: {'status': status, 'title': title, 'pubyear': pubyear, 'pubmonth': pubmonth, 'updated': updated}}
+
+    docs = work['work-summary']
+    id = False
+    for doc in docs:
+        ids = doc['external-ids']['external-id']
+        for d in ids:
+            if d['external-id-type'] == 'bibcode':
+                # stop if you find a bibcode
+                id = d['external-id-value']
+                status = 'pending'
+                title = doc['title']['value']
+                try:
+                    pubyear = doc['publication-date']['year']['value']
+                except TypeError:
+                    pubyear = None
+                try:
+                    pubmonth = doc['publication-date']['month']['value']
+                except TypeError:
+                    pubmonth = None
+
+                return id, {id: {'status': status, 'title': title, 'pubyear': pubyear, 'pubmonth': pubmonth, 'updated': updated}}
+
+            elif d['external-id-type'] == 'doi':
+                id = d['external-id-value']
+
+        if id:
+            # save off the metadata for a DOI record in case we can't find a bibcode later
+            status = 'pending'
+            title = doc['title']['value']
+            try:
+                pubyear = doc['publication-date']['year']['value']
+            except TypeError:
+                pubyear = None
+            try:
+                pubmonth = doc['publication-date']['month']['value']
+            except TypeError:
+                pubmonth = None
+
+    if id:
+        # returns metadata for a DOI record
+        return id, {id: {'status': status, 'title': title, 'pubyear': pubyear, 'pubmonth': pubmonth, 'updated': updated}}
+    else:
+        # any given IDs are not bibcode or DOI, so get the putcode and the metadata from the first record
+        id = work['work-summary'][0]['put-code']
+        status = 'not in ADS'
+        title = work['work-summary'][0]['title']['value']
+        try:
+            pubyear = work['work-summary'][0]['publication-date']['year']['value']
+        except TypeError:
+            pubyear = None
+        try:
+            pubmonth = work['work-summary'][0]['publication-date']['month']['value']
+        except TypeError:
+            pubmonth = None
+
+        return id, {id: {'status': status, 'title': title, 'pubyear': pubyear, 'pubmonth': pubmonth, 'updated': updated}}
