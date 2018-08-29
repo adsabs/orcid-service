@@ -1,25 +1,13 @@
-from flask.ext.testing import TestCase
 from flask import url_for
 import unittest
 import json
 import httpretty
-from orcid_service import app
-from orcid_service.models import User, Base
-from stubdata import orcid_profile, works_bulk, work_single
+from orcid_service.models import User, Profile
+from orcid_service.tests.base import TestCaseDatabase
+from stubdata import orcid_profile, orcid_profile_api_v2, orcid_profile_api_v2_short, works_bulk, work_single
 
-class TestServices(TestCase):
+class TestServices(TestCaseDatabase):
 
-    def create_app(self):
-        '''Start the wsgi application'''
-        a = app.create_app()
-        return a
-
-    def setUp(self):
-        Base.metadata.create_all(bind=self.app.db.engine)
-
-    def tearDown(self):
-        self.app.db.session.remove()
-        self.app.db.drop_all()
 
     @httpretty.activate
     def test_exchangeOAuthCode(self):
@@ -80,8 +68,58 @@ class TestServices(TestCase):
                 data=json.dumps({'foo': 'bar'}),
                 content_type='application/json')
         self.assertStatus(r, 201)
-        
-    
+
+    @httpretty.activate
+    def test_orcid_profile_local(self):
+        def request_callback(request, uri, headers):
+            assert request.headers['Accept'] == 'application/json'
+            assert request.headers['Content-Type'] == 'application/json'
+
+            if request.method == 'GET':
+                return (200, headers, json.dumps(orcid_profile_api_v2.data))
+            elif request.method == 'POST':
+                assert request.body == json.dumps({'foo': 'bar'})
+                return (201, headers, '')  # orcid literally returns empty string
+
+        def request_second_callback(request, uri, headers):
+            assert request.headers['Accept'] == 'application/json'
+            assert request.headers['Content-Type'] == 'application/json'
+
+            if request.method == 'GET':
+                return (200, headers, json.dumps(orcid_profile_api_v2_short.data))
+
+        httpretty.register_uri(
+            httpretty.GET, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8868-9743/record',
+            content_type='application/json',
+            body=request_callback)
+        httpretty.register_uri(
+            httpretty.POST, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8868-9743/record',
+            content_type='application/json',
+            body=request_callback)
+
+        r = self.client.get('/0000-0001-8868-9743/orcid-profile/simple',
+                headers={'Orcid-Authorization': 'secret'})
+
+        self.assertStatus(r, 200)
+        self.assertEquals(len(r.json), 6)
+
+        s = self.client.get('/0000-0001-8868-9743/orcid-profile/full',
+                headers={'Orcid-Authorization': 'secret'})
+
+        self.assertStatus(s, 200)
+        self.assertEquals(len(s.json), 8)
+
+        httpretty.register_uri(
+            httpretty.GET, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8868-9743/record',
+            content_type='application/json',
+            body=request_second_callback)
+
+        f = self.client.get('/0000-0001-8868-9743/orcid-profile/simple?update=True',
+                            headers={'Orcid-Authorization': 'secret'})
+
+        self.assertStatus(f, 200)
+        self.assertEquals(len(f.json), 1)
+
     @httpretty.activate
     def test_orcid_works(self):
         def request_callback(request, uri, headers):
@@ -372,6 +410,36 @@ class TestServices(TestCase):
         
         self.assertStatus(r, 200)
         self.assert_(r.json == {'foo': 'bar'}, 'missing data')
-        
+
+    def test_update_status(self):
+        with self.app.session_scope() as session:
+            p = session.query(Profile).filter_by(orcid_id='test').first()
+            if p:
+                session.delete(p)
+                session.commit()
+            p = Profile(orcid_id='test', bibcode={u'2018NatSR...8.2398L':
+                                                    {u'status': u'pending',
+                                                     u'pubyear': u'2018',
+                                                     u'updated': u'2018-04-12T11:41:52.899000',
+                                                     u'pubmonth': u'12',
+                                                     u'title': u'Test title'}})
+            session.add(p)
+            session.commit()
+
+        r = self.client.get(url_for('orcid.update_status', orcid_id='test'),
+                            headers={'Orcid-Authorization': 'secret'},
+                            content_type='application/json')
+
+        self.assertStatus(r, 200)
+        self.assert_(r.json == {'2018NatSR...8.2398L': 'pending'})
+
+        r = self.client.post(url_for('orcid.update_status', orcid_id='test'),
+                            headers={'Orcid-Authorization': 'secret'},
+                            data=json.dumps({'bibcodes': '2018NatSR...8.2398L', 'status': 'verified'}),
+                            content_type='application/json')
+
+        self.assertStatus(r, 200)
+        self.assert_(r.json == {u'2018NatSR...8.2398L': 'verified'})
+
 if __name__ == '__main__':
   unittest.main()

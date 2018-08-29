@@ -35,27 +35,6 @@ class MutableDict(Mutable, dict):
         else:
             return value
 
-    def __setitem__(self, key, value):
-        """
-        Detect dictionary set events and emit change events.
-        """
-        dict.__setitem__(self, key, value)
-        self.changed()
-
-    def __delitem__(self, key):
-        """
-        Detect dictionary del events and emit change events.
-        """
-        dict.__delitem__(self, key)
-        self.changed()
-
-    def setdefault(self, key, value):
-        """
-        Detect dictionary setdefault events and emit change events
-        """
-        dict.setdefault(self, key, value)
-        self.changed()
-
     def pop(self, key, default):
         """
         Detect dictionary pop events and emit change events
@@ -179,4 +158,5 @@ class Profile(Base):
             keys = [keys]
 
         for key in keys:
-            self.bibcode[key]['status'] = status
+            if self.bibcode.get(key):
+                self.bibcode[key]['status'] = status

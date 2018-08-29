@@ -1,6 +1,6 @@
 from flask import current_app, request, Blueprint
 from flask.ext.discoverer import advertise
-from .models import User
+from .models import User, Profile
 from datetime import datetime
 from dateutil import parser
 from sqlalchemy import exc, and_
@@ -77,27 +77,51 @@ def orcid_profile(orcid_id):
     return r.text, r.status_code
 
 @advertise(scopes=[], rate_limit = [1000, 3600 * 24])
-@bp.route('/<orcid_id>/orcid-profile/simple', methods=['GET'])
+@bp.route('/<orcid_id>/orcid-profile/simple', methods=['GET', 'POST'])
 def orcid_profile_simple(orcid_id):
     '''Get /[orcid-id]/orcid-profile/simple - returns bibcodes and status - all communication exclusively in JSON'''
 
     payload, headers = check_request(request)
+    update = request.args.get('update', False)
+
+    if request.method == 'GET':
+        r = current_app.client.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/record',
+                                   headers=headers)
+    else:
+        r = current_app.client.post(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/record',
+                                    json=payload, headers=headers)
+
+    if r.status_code == 200:
+        update_profile_local(orcid_id, data=r.text, force=update)
+
     with current_app.session_scope() as session:
-        profile = session.query(Profile).filter_by(orcid_id=orcid_id).one()
+        profile = session.query(Profile).filter_by(orcid_id=orcid_id).first()
         bibcodes, statuses = profile.get_bibcodes()
         records = dict(zip(bibcodes, statuses))
 
     return json.dumps(records), 200
 
 @advertise(scopes=[], rate_limit=[1000, 3600 * 24])
-@bp.route('/<orcid_id>/orcid-profile/full', methods=['GET'])
-def orcid_profile_simple(orcid_id):
+@bp.route('/<orcid_id>/orcid-profile/full', methods=['GET', 'POST'])
+def orcid_profile_full(orcid_id):
     '''Get /[orcid-id]/orcid-profile/full - returns all records and saved metadata - all communication exclusively in JSON'''
 
     payload, headers = check_request(request)
+    update = request.args.get('update', False)
+
+    if request.method == 'GET':
+        r = current_app.client.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/record',
+                                   headers=headers)
+    else:
+        r = current_app.client.post(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/record',
+                                    json=payload, headers=headers)
+
+    if r.status_code == 200:
+        update_profile_local(orcid_id, data=r.text, force=update)
+
     with current_app.session_scope() as session:
-        profile = session.query(Profile).filter_by(orcid_id=orcid_id).one()
-        records = profile.bibcodes()
+        profile = session.query(Profile).filter_by(orcid_id=orcid_id).first()
+        records = profile.bibcode
 
     return json.dumps(records), 200
 
@@ -294,8 +318,8 @@ def update_status(orcid_id):
 
     if request.method == 'GET':
         with current_app.session_scope() as session:
-            profile = session.query(Profile).filter_by(orcid_id=orcid_id).one()
-            recs = profile.bibcodes()
+            profile = session.query(Profile).filter_by(orcid_id=orcid_id).first()
+            recs = profile.bibcode
             statuses = profile.get_nested(recs,'status')
             records = dict(zip(recs, statuses))
 
@@ -307,10 +331,13 @@ def update_status(orcid_id):
         if 'status' not in payload:
             raise Exception('Status is missing')
         with current_app.session_scope() as session:
-            profile = session.query(Profile).filter_by(orcid_id=orcid_id).one()
-            for status in payload['status']:
-                profile.update_status(payload['bibcodes'],status)
-            records = dict(zip(payload['bibcodes'], [payload['status']] * len(payload['bibcode'])))
+            profile = session.query(Profile).filter_by(orcid_id=orcid_id).first()
+            if type(payload['bibcodes']) != list:
+                bibcodes = [payload['bibcodes']]
+            else:
+                bibcodes = payload['bibcodes']
+            profile.update_status(bibcodes,payload['status'])
+            records = dict(zip(bibcodes, [payload['status']] * len(bibcodes)))
 
         return json.dumps(records), 200
 
@@ -339,51 +366,59 @@ def update_profile(orcid_id, data=None):
             # per PEP-0249 a transaction is always in progress
             session.commit()
 
-def update_profile_simple(orcid_id, data=None, force=False):
+def update_profile_local(orcid_id, data=None, force=False):
     """Update local db with ORCID profile"""
+
+    data = json.loads(data)
+
     with current_app.session_scope() as session:
-        profile = session.query(Profile).filter_by(orcid_id=orcid_id).one()
-        if profile:
-            # data assumed to come from ORCID API /works endpoint
-            if data:
-                # convert milliseconds since epoch to seconds since epoch
-                last_modified = data['last-modified-date']['value']
-                last_modified /= 1000.
-                if force or (profile.updated < datetime.fromtimestamp(last_modified)):
-                    works = data['group']
-                    new_recs = {}
-                    update_recs = {}
-                    orcid_recs = []
-                    current_recs = profile.bibcodes.keys()
-                    for work in works:
-                        try:
-                            id, rec = find_record(work)
-                        except:
-                            continue
-                        if id not in current_recs:
-                            new_recs.update(rec)
-                        if id in current_recs and (profile.updated < rec[id]['updated']):
-                            # if bibcode already in the profile, keep its status
-                            rec[id]['status'] = profile[id]['status']
-                            update_recs.update(rec)
-                        orcid_recs.append(id)
-                    profile.add_records(new_recs)
-                    profile.add_records(update_recs)
-                    # remove records from the profile that aren't in the ORCID set
-                    remove_recs = list(set(current_recs)-set(orcid_recs))
-                    profile.remove_bibcodes(remove_recs)
-            profile.updated = datetime.utcnow()
-            # save the user
-            session.begin_nested()
-            try:
-                session.add(profile)
-                session.commit()
-            except exc.IntegrityError as e:
-                session.rollback()
-            # per PEP-0249 a transaction is always in progress
+        profile = session.query(Profile).filter_by(orcid_id=orcid_id).first()
+        if not profile:
+            logging.error('ORCID profile {} does not exist; creating'.format(orcid_id))
+            profile = Profile(orcid_id=orcid_id, created=datetime.utcnow())
+            force = True
+        # data assumed to come from ORCID API /works endpoint
+        if data:
+            # convert milliseconds since epoch to seconds since epoch
+            last_modified = data['activities-summary']['last-modified-date']['value']
+            last_modified /= 1000.
+            if force or (profile.updated < datetime.fromtimestamp(last_modified)):
+                works = data['activities-summary']['works']['group']
+                new_recs = {}
+                update_recs = {}
+                orcid_recs = []
+                try:
+                    current_recs = profile.bibcode.keys()
+                except:
+                    current_recs = []
+                for work in works:
+                    try:
+                        id0, rec = find_record(work)
+                    except:
+                        continue
+                    if id0 not in current_recs:
+                        new_recs.update(rec)
+                    if id0 in current_recs and (profile.updated < parser.parse(rec[id0]['updated'])):
+                        # if bibcode already in the profile, keep its status
+                        rec[id0]['status'] = profile[id0]['status']
+                        update_recs.update(rec)
+                    orcid_recs.append(id0)
+                profile.add_records(new_recs)
+                profile.add_records(update_recs)
+                # remove records from the profile that aren't in the ORCID set
+                remove_recs = list(set(current_recs)-set(orcid_recs))
+                profile.remove_bibcodes(remove_recs)
+
+        profile.updated = datetime.utcnow()
+        # save the user
+        session.begin_nested()
+        try:
+            session.add(profile)
             session.commit()
-        else:
-            logging.error('ORCID profile {} does not exist'.format(orcid_id))
+        except exc.IntegrityError as e:
+            session.rollback()
+        # per PEP-0249 a transaction is always in progress
+        session.commit()
 
 def check_request(request):
 
@@ -415,14 +450,16 @@ def find_record(work):
     Given a work in an ORCID XML profile, extract some metadata
     """
 
-    updated = work['last-modified-date']['value']
+    # seconds since epoch
+    updated = datetime.fromtimestamp(work['last-modified-date']['value'] / 1000.).isoformat()
+
     try:
         tmp = work['external-ids']['external-id'][0]['external-id-type']
     except IndexError:
         # no ID is given, so get the putcode and the metadata from the first record
-        id = work['work-summary'][0]['put-code']
+        id0 = str(work['work-summary'][0]['put-code'])
         status = 'not in ADS'
-        title = work['work-summary'][0]['title']['value']
+        title = work['work-summary'][0]['title']['title']['value']
         try:
             pubyear = work['work-summary'][0]['publication-date']['year']['value']
         except TypeError:
@@ -432,18 +469,18 @@ def find_record(work):
         except TypeError:
             pubmonth = None
 
-        return id, {id: {'status': status, 'title': title, 'pubyear': pubyear, 'pubmonth': pubmonth, 'updated': updated}}
+        return id0, {id0: {'status': status, 'title': title, 'pubyear': pubyear, 'pubmonth': pubmonth, 'updated': updated}}
 
     docs = work['work-summary']
-    id = False
+    id0 = False
     for doc in docs:
         ids = doc['external-ids']['external-id']
         for d in ids:
             if d['external-id-type'] == 'bibcode':
                 # stop if you find a bibcode
-                id = d['external-id-value']
+                id0 = d['external-id-value']
                 status = 'pending'
-                title = doc['title']['value']
+                title = doc['title']['title']['value']
                 try:
                     pubyear = doc['publication-date']['year']['value']
                 except TypeError:
@@ -453,15 +490,15 @@ def find_record(work):
                 except TypeError:
                     pubmonth = None
 
-                return id, {id: {'status': status, 'title': title, 'pubyear': pubyear, 'pubmonth': pubmonth, 'updated': updated}}
+                return id0, {id0: {'status': status, 'title': title, 'pubyear': pubyear, 'pubmonth': pubmonth, 'updated': updated}}
 
             elif d['external-id-type'] == 'doi':
-                id = d['external-id-value']
+                id0 = d['external-id-value']
 
-        if id:
+        if id0:
             # save off the metadata for a DOI record in case we can't find a bibcode later
             status = 'pending'
-            title = doc['title']['value']
+            title = doc['title']['title']['value']
             try:
                 pubyear = doc['publication-date']['year']['value']
             except TypeError:
@@ -471,14 +508,14 @@ def find_record(work):
             except TypeError:
                 pubmonth = None
 
-    if id:
+    if id0:
         # returns metadata for a DOI record
-        return id, {id: {'status': status, 'title': title, 'pubyear': pubyear, 'pubmonth': pubmonth, 'updated': updated}}
+        return id0, {id0: {'status': status, 'title': title, 'pubyear': pubyear, 'pubmonth': pubmonth, 'updated': updated}}
     else:
         # any given IDs are not bibcode or DOI, so get the putcode and the metadata from the first record
-        id = work['work-summary'][0]['put-code']
+        id0 = str(work['work-summary'][0]['put-code'])
         status = 'not in ADS'
-        title = work['work-summary'][0]['title']['value']
+        title = work['work-summary'][0]['title']['title']['value']
         try:
             pubyear = work['work-summary'][0]['publication-date']['year']['value']
         except TypeError:
@@ -488,4 +525,4 @@ def find_record(work):
         except TypeError:
             pubmonth = None
 
-        return id, {id: {'status': status, 'title': title, 'pubyear': pubyear, 'pubmonth': pubmonth, 'updated': updated}}
+        return id0, {id0: {'status': status, 'title': title, 'pubyear': pubyear, 'pubmonth': pubmonth, 'updated': updated}}
