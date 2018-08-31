@@ -341,6 +341,19 @@ def update_status(orcid_id):
 
         return json.dumps(records), 200
 
+@advertise(scopes=[], rate_limit = [100, 3600*24])
+@bp.route('/orcid-name/<orcid_id>', methods=['GET'])
+def orcid_name(orcid_id):
+    '''Get name from ORCID profile'''
+
+    payload, headers = check_request(request)
+
+    r = current_app.client.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/personal-details',
+                                   headers=headers)
+
+    return r.text, r.status_code
+
+
 def update_profile(orcid_id, data=None):
     """Inserts data into the user record and updates the 'updated'
     column with the most recent timestamp"""

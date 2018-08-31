@@ -4,7 +4,7 @@ import json
 import httpretty
 from orcid_service.models import User, Profile
 from orcid_service.tests.base import TestCaseDatabase
-from stubdata import orcid_profile, orcid_profile_api_v2, orcid_profile_api_v2_short, works_bulk, work_single
+from stubdata import orcid_profile, orcid_profile_api_v2, orcid_profile_api_v2_short, orcid_profile_api_v2_personaldetails, works_bulk, work_single
 
 class TestServices(TestCaseDatabase):
 
@@ -440,6 +440,27 @@ class TestServices(TestCaseDatabase):
 
         self.assertStatus(r, 200)
         self.assert_(r.json == {u'2018NatSR...8.2398L': 'verified'})
+
+    @httpretty.activate
+    def test_get_orcid_name(self):
+
+        def request_callback(request, uri, headers):
+            assert request.headers['Accept'] == 'application/json'
+            assert request.headers['Content-Type'] == 'application/json'
+
+            if request.method == 'GET':
+                return (200, headers, json.dumps(orcid_profile_api_v2_personaldetails.data))
+
+        httpretty.register_uri(
+            httpretty.GET, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8868-9743/personal-details',
+            content_type='application/json',
+            body=request_callback)
+
+        r = self.client.get(url_for('orcid.orcid_name', orcid_id='0000-0001-8868-9743'),
+                            headers={'Orcid-Authorization': 'secret'})
+
+        self.assertStatus(r, 200)
+        self.assert_(r.json['name']['family-name']['value'] == 'Payne')
 
 if __name__ == '__main__':
   unittest.main()
