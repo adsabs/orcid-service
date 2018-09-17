@@ -118,6 +118,8 @@ def orcid_profile_full(orcid_id):
 
     if r.status_code == 200:
         update_profile_local(orcid_id, data=r.text, force=update)
+    else:
+        logging.warning('Failed fetching fresh profile from ORCID for %s'.format(orcid_id))
 
     with current_app.session_scope() as session:
         profile = session.query(Profile).filter_by(orcid_id=orcid_id).first()
@@ -430,8 +432,7 @@ def update_profile_local(orcid_id, data=None, force=False):
             session.commit()
         except exc.IntegrityError as e:
             session.rollback()
-        # per PEP-0249 a transaction is always in progress
-        session.commit()
+            logging.warning('ORCID profile database error - updated bibcodes for %s were not saved.'.format(orcid_id))
 
 def check_request(request):
 
@@ -466,6 +467,9 @@ def find_record(work):
     # seconds since epoch
     updated = datetime.fromtimestamp(work['last-modified-date']['value'] / 1000.).isoformat()
 
+    docs = work['work-summary']
+    id0 = False
+
     try:
         tmp = work['external-ids']['external-id'][0]['external-id-type']
     except IndexError:
@@ -481,19 +485,35 @@ def find_record(work):
             pubmonth = work['work-summary'][0]['publication-date']['month']['value']
         except TypeError:
             pubmonth = None
+        sources = []
+        for doc in docs:
+            sources.append(doc['source']['source-name']['value'])
 
-        return id0, {id0: {'status': status, 'title': title, 'pubyear': pubyear, 'pubmonth': pubmonth, 'updated': updated}}
+        return id0, {id0: {'identifier': id0,
+                           'status': status,
+                           'title': title,
+                           'pubyear': pubyear,
+                           'pubmonth': pubmonth,
+                           'updated': updated,
+                           'putcode': id0,
+                           'source': sources
+                           }
+                     }
 
-    docs = work['work-summary']
-    id0 = False
+    hasBibcode = False
+    sources = []
     for doc in docs:
         ids = doc['external-ids']['external-id']
+        # have to loop through all docs because BBB wants all sources
+        sources.append(doc['source']['source-name']['value'])
         for d in ids:
             if d['external-id-type'] == 'bibcode':
+                hasBibcode = True
                 # stop if you find a bibcode
                 id0 = d['external-id-value']
                 status = 'pending'
                 title = doc['title']['title']['value']
+                putcode = doc['put-code']
                 try:
                     pubyear = doc['publication-date']['year']['value']
                 except TypeError:
@@ -503,15 +523,16 @@ def find_record(work):
                 except TypeError:
                     pubmonth = None
 
-                return id0, {id0: {'status': status, 'title': title, 'pubyear': pubyear, 'pubmonth': pubmonth, 'updated': updated}}
+                break
 
             elif d['external-id-type'] == 'doi':
                 id0 = d['external-id-value']
 
-        if id0:
+        if (id0 and not hasBibcode):
             # save off the metadata for a DOI record in case we can't find a bibcode later
             status = 'pending'
             title = doc['title']['title']['value']
+            putcode = doc['put-code']
             try:
                 pubyear = doc['publication-date']['year']['value']
             except TypeError:
@@ -522,13 +543,23 @@ def find_record(work):
                 pubmonth = None
 
     if id0:
-        # returns metadata for a DOI record
-        return id0, {id0: {'status': status, 'title': title, 'pubyear': pubyear, 'pubmonth': pubmonth, 'updated': updated}}
+        # return metadata for a bibcode or DOI record
+        return id0, {id0: {'identifier': id0,
+                           'status': status,
+                           'title': title,
+                           'pubyear': pubyear,
+                           'pubmonth': pubmonth,
+                           'updated': updated,
+                           'putcode': putcode,
+                           'source': sources
+                           }
+                     }
     else:
         # any given IDs are not bibcode or DOI, so get the putcode and the metadata from the first record
         id0 = str(work['work-summary'][0]['put-code'])
         status = 'not in ADS'
         title = work['work-summary'][0]['title']['title']['value']
+        putcode = work['work-summary'][0]['put-code']
         try:
             pubyear = work['work-summary'][0]['publication-date']['year']['value']
         except TypeError:
@@ -538,4 +569,13 @@ def find_record(work):
         except TypeError:
             pubmonth = None
 
-        return id0, {id0: {'status': status, 'title': title, 'pubyear': pubyear, 'pubmonth': pubmonth, 'updated': updated}}
+        return id0, {id0: {'identifier': id0,
+                           'status': status,
+                           'title': title,
+                           'pubyear': pubyear,
+                           'pubmonth': pubmonth,
+                           'updated': updated,
+                           'putcode': putcode,
+                           'source': sources
+                           }
+                     }

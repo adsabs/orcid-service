@@ -686,6 +686,155 @@ data = {
                             "display-index": "1"
                         }
                     ]
+                },
+                {
+                    "last-modified-date": {
+                        "value": 1522444762829
+                    },
+                    "external-ids": {
+                        "external-id": [
+                            {
+                                "external-id-type": "doi",
+                                "external-id-value": "10.1088/0004-637X/810/2/149",
+                                "external-id-url": {
+                                    "value": "http://dx.doi.org/10.1088/0004-637X/810/2/149"
+                                },
+                                "external-id-relationship": "SELF"
+                            },
+                            {
+                                "external-id-type": "bibcode",
+                                "external-id-value": "2015ApJ...810..149L",
+                                "external-id-url": None,
+                                "external-id-relationship": "SELF"
+                            },
+                            {
+                                "external-id-type": "other-id",
+                                "external-id-value": "2127038",
+                                "external-id-url": None,
+                                "external-id-relationship": "SELF"
+                            }
+                        ]
+                    },
+                    "work-summary": [
+                        {
+                            "put-code": 31358145,
+                            "created-date": {
+                                "value": 1490598610415
+                            },
+                            "last-modified-date": {
+                                "value": 1520448612209
+                            },
+                            "source": {
+                                "source-orcid": None,
+                                "source-client-id": {
+                                    "uri": "http://orcid.org/client/0000-0001-9884-1913",
+                                    "path": "0000-0001-9884-1913",
+                                    "host": "orcid.org"
+                                },
+                                "source-name": {
+                                    "value": "Crossref"
+                                }
+                            },
+                            "title": {
+                                "title": {
+                                    "value": "HST/WFC3 OBSERVATIONS OF AN OFF-NUCLEAR SUPERBUBBLE IN ARP 220"
+                                },
+                                "subtitle": None,
+                                "translated-title": None
+                            },
+                            "external-ids": {
+                                "external-id": [
+                                    {
+                                        "external-id-type": "doi",
+                                        "external-id-value": "10.1088/0004-637X/810/2/149",
+                                        "external-id-url": {
+                                            "value": "http://dx.doi.org/10.1088/0004-637X/810/2/149"
+                                        },
+                                        "external-id-relationship": "SELF"
+                                    }
+                                ]
+                            },
+                            "type": "JOURNAL_ARTICLE",
+                            "publication-date": {
+                                "year": {
+                                    "value": "2015"
+                                },
+                                "month": {
+                                    "value": "09"
+                                },
+                                "day": {
+                                    "value": "09"
+                                },
+                                "media-type": None
+                            },
+                            "visibility": "PUBLIC",
+                            "path": "/0000-0002-8130-1440/work/31358145",
+                            "display-index": "0"
+                        },
+                        {
+                            "put-code": 38497466,
+                            "created-date": {
+                                "value": 1510265009916
+                            },
+                            "last-modified-date": {
+                                "value": 1522444762829
+                            },
+                            "source": {
+                                "source-orcid": None,
+                                "source-client-id": {
+                                    "uri": "http://orcid.org/client/APP-BA5POB6F5D7CTHX2",
+                                    "path": "APP-BA5POB6F5D7CTHX2",
+                                    "host": "orcid.org"
+                                },
+                                "source-name": {
+                                    "value": "NASA Astrophysics Data System"
+                                }
+                            },
+                            "title": {
+                                "title": {
+                                    "value": "HST/WFC3 Observations of an Off-nuclear Superbubble in Arp 220"
+                                },
+                                "subtitle": None,
+                                "translated-title": None
+                            },
+                            "external-ids": {
+                                "external-id": [
+                                    {
+                                        "external-id-type": "bibcode",
+                                        "external-id-value": "2015ApJ...810..149L",
+                                        "external-id-url": None,
+                                        "external-id-relationship": "SELF"
+                                    },
+                                    {
+                                        "external-id-type": "other-id",
+                                        "external-id-value": "2127038",
+                                        "external-id-url": None,
+                                        "external-id-relationship": "SELF"
+                                    },
+                                    {
+                                        "external-id-type": "doi",
+                                        "external-id-value": "10.1088/0004-637X/810/2/149",
+                                        "external-id-url": None,
+                                        "external-id-relationship": "SELF"
+                                    }
+                                ]
+                            },
+                            "type": "JOURNAL_ARTICLE",
+                            "publication-date": {
+                                "year": {
+                                    "value": "2015"
+                                },
+                                "month": {
+                                    "value": "09"
+                                },
+                                "day": None,
+                                "media-type": None
+                            },
+                            "visibility": "PUBLIC",
+                            "path": "/0000-0002-8130-1440/work/38497466",
+                            "display-index": "0"
+                        }
+                    ]
                 }
             ],
             "path": "/0000-0001-8868-9743/works"
