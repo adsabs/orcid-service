@@ -97,24 +97,25 @@ class TestServices(TestCaseDatabase):
             content_type='application/json',
             body=request_callback)
 
-        r = self.client.get('/0000-0001-8868-9743/orcid-profile/simple',
+        r = self.client.get('/0000-0001-8868-9743/orcid-profile/simple?update=True',
                 headers={'Orcid-Authorization': 'secret'})
 
         self.assertStatus(r, 200)
-        self.assertEquals(len(r.json), 6)
+        self.assertEquals(len(r.json), 7)
 
         s = self.client.get('/0000-0001-8868-9743/orcid-profile/full',
                 headers={'Orcid-Authorization': 'secret'})
 
         self.assertStatus(s, 200)
-        self.assertEquals(len(s.json), 8)
+        self.assertEquals(len(s.json), 9)
+        self.assertEquals(len(s.json['2015ApJ...810..149L']['source']),2)
 
         httpretty.register_uri(
             httpretty.GET, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8868-9743/record',
             content_type='application/json',
             body=request_second_callback)
 
-        f = self.client.get('/0000-0001-8868-9743/orcid-profile/simple?update=True',
+        f = self.client.get('/0000-0001-8868-9743/orcid-profile/full?update=True',
                             headers={'Orcid-Authorization': 'secret'})
 
         self.assertStatus(f, 200)
