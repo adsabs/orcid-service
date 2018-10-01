@@ -76,45 +76,19 @@ def orcid_profile(orcid_id):
 
     return r.text, r.status_code
 
-@advertise(scopes=[], rate_limit = [1000, 3600 * 24])
-@bp.route('/<orcid_id>/orcid-profile/simple', methods=['GET', 'POST'])
-def orcid_profile_simple(orcid_id):
-    '''Get /[orcid-id]/orcid-profile/simple - returns bibcodes and status - all communication exclusively in JSON'''
-
-    payload, headers = check_request(request)
-    update = request.args.get('update', False)
-
-    if request.method == 'GET':
-        r = current_app.client.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/record',
-                                   headers=headers)
-    else:
-        r = current_app.client.post(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/record',
-                                    json=payload, headers=headers)
-
-    if r.status_code == 200:
-        update_profile_local(orcid_id, data=r.text, force=update)
-
-    with current_app.session_scope() as session:
-        profile = session.query(Profile).filter_by(orcid_id=orcid_id).first()
-        bibcodes, statuses = profile.get_bibcodes()
-        records = dict(zip(bibcodes, statuses))
-
-    return json.dumps(records), 200
-
 @advertise(scopes=[], rate_limit=[1000, 3600 * 24])
-@bp.route('/<orcid_id>/orcid-profile/full', methods=['GET', 'POST'])
-def orcid_profile_full(orcid_id):
-    '''Get /[orcid-id]/orcid-profile/full - returns all records and saved metadata - all communication exclusively in JSON'''
+@bp.route('/<orcid_id>/orcid-profile/<type>', methods=['GET'])
+def orcid_profile_local(orcid_id, type):
+    '''Get /[orcid-id]/orcid-profile/<simple,full> - returns either bibcodes and statuses (/simple) or all
+    records and saved metadata (/full) - all communication exclusively in JSON'''
 
     payload, headers = check_request(request)
     update = request.args.get('update', False)
+    if type not in ['simple','full']:
+        return json.dumps('Endpoint /orcid-profile/%s does not exist'.format(type)), 404
 
-    if request.method == 'GET':
-        r = current_app.client.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/record',
+    r = current_app.client.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/record',
                                    headers=headers)
-    else:
-        r = current_app.client.post(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/record',
-                                    json=payload, headers=headers)
 
     if r.status_code == 200:
         update_profile_local(orcid_id, data=r.text, force=update)
@@ -123,7 +97,11 @@ def orcid_profile_full(orcid_id):
 
     with current_app.session_scope() as session:
         profile = session.query(Profile).filter_by(orcid_id=orcid_id).first()
-        records = profile.bibcode
+        if type == 'simple':
+            bibcodes, statuses = profile.get_bibcodes()
+            records = dict(zip(bibcodes, statuses))
+        elif type == 'full':
+            records = profile.get_records()
 
     return json.dumps(records), 200
 
@@ -321,7 +299,7 @@ def update_status(orcid_id):
     if request.method == 'GET':
         with current_app.session_scope() as session:
             profile = session.query(Profile).filter_by(orcid_id=orcid_id).first()
-            recs = profile.bibcode
+            recs = profile.get_records()
             statuses = profile.get_nested(recs,'status')
             records = dict(zip(recs, statuses))
 
@@ -339,7 +317,8 @@ def update_status(orcid_id):
             else:
                 bibcodes = payload['bibcodes']
             profile.update_status(bibcodes,payload['status'])
-            records = dict(zip(bibcodes, [payload['status']] * len(bibcodes)))
+            good_bibc, good_statuses = profile.get_status(bibcodes)
+            records = dict(zip(good_bibc, good_statuses))
 
         return json.dumps(records), 200
 
@@ -413,9 +392,9 @@ def update_profile_local(orcid_id, data=None, force=False):
                         continue
                     if id0 not in current_recs:
                         new_recs.update(rec)
-                    if id0 in current_recs and (profile.updated < parser.parse(rec[id0]['updated'])):
+                    else:
                         # if bibcode already in the profile, keep its status
-                        rec[id0]['status'] = profile[id0]['status']
+                        rec[id0]['status'] = profile.bibcode[id0]['status']
                         update_recs.update(rec)
                     orcid_recs.append(id0)
                 profile.add_records(new_recs)

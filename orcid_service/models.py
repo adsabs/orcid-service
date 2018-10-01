@@ -10,6 +10,7 @@ from sqlalchemy.ext.mutable import Mutable
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy import Column, String, TIMESTAMP, Text
 import json
+import logging
 
 Base = declarative_base()
 
@@ -93,6 +94,12 @@ class Profile(Base):
         non_bibcodes, status = self.find_nested(self.bibcode, 'status', self.nonbib_status)
         return non_bibcodes
 
+    def get_records(self):
+        """
+        Returns all records from an ORCID profile
+        """
+        return self.bibcode
+
     def add_records(self, records):
         """
         Adds a record to the bibcode field, first making sure it has the appropriate nested dict
@@ -158,5 +165,27 @@ class Profile(Base):
             keys = [keys]
 
         for key in keys:
-            if self.bibcode.get(key):
+            if key in self.bibcode:
                 self.bibcode[key]['status'] = status
+            else:
+                logging.warning('Record %s not in profile for %s'.format(key, self.orcid_id))
+
+    def get_status(self, keys):
+        """
+        For a given set of records, return the statuses
+        :param keys: str or list
+        :return: good_keys - list of keys that exist in the set
+        :return: statuses - list of statuses of good_keys
+        """
+        if type(keys) is not list:
+            keys = [keys]
+
+        good_keys = []
+        statuses = []
+
+        for key in keys:
+            if key in self.bibcode:
+                good_keys.append(key)
+                statuses.append(self.bibcode[key]['status'])
+
+        return good_keys, statuses

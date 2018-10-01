@@ -14,6 +14,7 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 import datetime
+from adsmutils import UTCDateTime, get_date
 
 
 def upgrade():
@@ -23,8 +24,8 @@ def upgrade():
 
     op.create_table('profile',
                     sa.Column('orcid_id', sa.String(length=255), nullable=False),
-                    sa.Column('created', sa.DateTime(), nullable=True, default=datetime.datetime.utcnow),
-                    sa.Column('updated', sa.DateTime(), nullable=True, default=datetime.datetime.utcnow),
+                    sa.Column('created', UTCDateTime, nullable=True, default=get_date),
+                    sa.Column('updated', UTCDateTime, nullable=True, default=get_date),
                     sa.Column('bibcode', postgresql.JSON(), nullable=True),
                     sa.PrimaryKeyConstraint('orcid_id')
                     )
