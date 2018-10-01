@@ -208,10 +208,10 @@ def get_profile(orcid_id):
     with current_app.session_scope() as session:
         u = session.query(User).filter_by(orcid_id=orcid_id).first()
         if not u:
-            return json.dumps({'error': 'We do not have a record for: %s' % user_id}), 404
+            return json.dumps({'error': 'We do not have a record for: %s' % orcid_id}), 404
 
         if not u.access_token:
-            return json.dumps({'error': 'We do not have access_token for: %s' % user_id}), 404
+            return json.dumps({'error': 'We do not have access_token for: %s' % orcid_id}), 404
 
         out = u.toJSON()
 
