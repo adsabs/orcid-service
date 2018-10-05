@@ -77,9 +77,6 @@ class TestServices(TestCaseDatabase):
 
             if request.method == 'GET':
                 return (200, headers, json.dumps(orcid_profile_api_v2.data))
-            elif request.method == 'POST':
-                assert request.body == json.dumps({'foo': 'bar'})
-                return (201, headers, '')  # orcid literally returns empty string
 
         def request_second_callback(request, uri, headers):
             assert request.headers['Accept'] == 'application/json'
@@ -90,10 +87,6 @@ class TestServices(TestCaseDatabase):
 
         httpretty.register_uri(
             httpretty.GET, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8868-9743/record',
-            content_type='application/json',
-            body=request_callback)
-        httpretty.register_uri(
-            httpretty.POST, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8868-9743/record',
             content_type='application/json',
             body=request_callback)
 
