@@ -8,5 +8,5 @@ ORCID_API_ENDPOINT = 'https://api.sandbox.orcid.org/v2.0'
 ORCID_CLIENT_ID = 'APP-P5ANJTQRRTMA6GXZ'
 ORCID_CLIENT_SECRET = '989e54c8-7093-4128-935f-30c19ed9158c'
 
-SQLALCHEMY_DATABASE_URI = 'sqlite:///'
+SQLALCHEMY_DATABASE_URI = "postgresql+psycopg2://postgres:postgres@localhost:5432/test_orcid_service"
 SQLALCHEMY_ECHO = False

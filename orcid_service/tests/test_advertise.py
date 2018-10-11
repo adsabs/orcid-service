@@ -1,14 +1,15 @@
-from flask.ext.testing import TestCase
 import unittest
 from orcid_service import app
+from orcid_service.tests.base import TestCaseDatabase
 
 
-class TestWebservices(TestCase):
+class TestWebservices(TestCaseDatabase):
     '''Tests that each route is an http response'''
+
     def create_app(self):
         '''Start the wsgi application'''
         a = app.create_app(**{
-            'SQLALCHEMY_DATABASE_URI': 'sqlite:///'
+            'SQLALCHEMY_DATABASE_URI': self.postgresql_url
            })
         return a
 
