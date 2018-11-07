@@ -9,6 +9,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.mutable import Mutable
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy import Column, String, TIMESTAMP, Text
+from adsmutils import UTCDateTime
 import json
 import logging
 
@@ -71,8 +72,8 @@ class Profile(Base):
     __tablename__ = 'profile'
 
     orcid_id = Column(String(255), primary_key=True)
-    created = Column(TIMESTAMP)
-    updated = Column(TIMESTAMP)
+    created = Column(UTCDateTime)
+    updated = Column(UTCDateTime)
     bibcode = Column(MutableDict.as_mutable(JSON), default={})
 
     bib_status = ['verified', 'pending', 'rejected']

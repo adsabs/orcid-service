@@ -7,6 +7,8 @@ from sqlalchemy import exc, and_
 from sqlalchemy.orm import load_only
 import json
 import logging
+import pytz
+import adsmutils
 
 bp = Blueprint('orcid', __name__)
 
@@ -39,9 +41,9 @@ def get_access_token():
             if not u:
                 u = User(orcid_id=data['orcid'], created=datetime.utcnow())
             if not p:
-                p = Profile(orcid_id=data['orcid'], created=datetime.utcnow())
+                p = Profile(orcid_id=data['orcid'], created=adsmutils.get_date())
             u.updated = datetime.utcnow()
-            p. updated = datetime.utcnow()
+            p. updated = adsmutils.get_date()
             u.access_token = data['access_token']
             # save the user
             session.begin_nested()
@@ -369,14 +371,14 @@ def update_profile_local(orcid_id, data=None, force=False):
         profile = session.query(Profile).filter_by(orcid_id=orcid_id).first()
         if not profile:
             logging.error('ORCID profile {} does not exist; creating'.format(orcid_id))
-            profile = Profile(orcid_id=orcid_id, created=datetime.utcnow())
+            profile = Profile(orcid_id=orcid_id, created=adsmutils.get_date())
             force = True
         # data assumed to come from ORCID API /works endpoint
         if data:
             # convert milliseconds since epoch to seconds since epoch
             last_modified = data['activities-summary']['last-modified-date']['value']
             last_modified /= 1000.
-            if force or (profile.updated < datetime.fromtimestamp(last_modified)):
+            if force or (profile.updated < datetime.utcfromtimestamp(last_modified).replace(tzinfo=pytz.utc)):
                 works = data['activities-summary']['works']['group']
                 new_recs = {}
                 update_recs = {}
@@ -403,7 +405,7 @@ def update_profile_local(orcid_id, data=None, force=False):
                 remove_recs = list(set(current_recs)-set(orcid_recs))
                 profile.remove_bibcodes(remove_recs)
 
-        profile.updated = datetime.utcnow()
+        profile.updated = adsmutils.get_date()
         # save the user
         session.begin_nested()
         try:
@@ -444,7 +446,7 @@ def find_record(work):
     """
 
     # seconds since epoch
-    updated = datetime.fromtimestamp(work['last-modified-date']['value'] / 1000.).isoformat()
+    updated = datetime.utcfromtimestamp(work['last-modified-date']['value'] / 1000.).replace(tzinfo=pytz.utc).isoformat()
 
     docs = work['work-summary']
     id0 = False
