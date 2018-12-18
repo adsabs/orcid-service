@@ -58,6 +58,13 @@ class MutableDict(Mutable, dict):
         dict.setdefault(self, key, value)
         self.changed()
 
+    def update(self, subdict):
+        """
+        Detect dictionary update events and emit change events
+        """
+        dict.update(self, subdict)
+        self.changed()
+
     def pop(self, key, default):
         """
         Detect dictionary pop events and emit change events
