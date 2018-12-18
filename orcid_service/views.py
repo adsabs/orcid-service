@@ -39,10 +39,10 @@ def get_access_token():
             u = session.query(User).filter_by(orcid_id=data['orcid']).options(load_only(User.orcid_id)).first()
             p = session.query(Profile).filter_by(orcid_id=data['orcid']).options(load_only(Profile.orcid_id)).first()
             if not u:
-                u = User(orcid_id=data['orcid'], created=datetime.utcnow())
+                u = User(orcid_id=data['orcid'], created=adsmutils.get_date())
             if not p:
                 p = Profile(orcid_id=data['orcid'], created=adsmutils.get_date())
-            u.updated = datetime.utcnow()
+            u.updated = adsmutils.get_date()
             p. updated = adsmutils.get_date()
             u.access_token = data['access_token']
             # save the user
@@ -344,7 +344,7 @@ def update_profile(orcid_id, data=None):
     with current_app.session_scope() as session:
         u = session.query(User).filter_by(orcid_id=orcid_id).options(load_only(User.orcid_id)).first()
         if u:
-            u.updated = datetime.utcnow()
+            u.updated = adsmutils.get_date()
             if data:
                 try:
                     #verify the data is a valid JSON

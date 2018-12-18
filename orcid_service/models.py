@@ -8,7 +8,7 @@
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.mutable import Mutable
 from sqlalchemy.dialects.postgresql import JSON
-from sqlalchemy import Column, String, TIMESTAMP, Text
+from sqlalchemy import Column, String, Text
 from adsmutils import UTCDateTime
 import json
 import logging
@@ -73,8 +73,8 @@ class User(Base):
     
     orcid_id = Column(String(255), primary_key=True)
     access_token = Column(String(255))
-    created = Column(TIMESTAMP)
-    updated = Column(TIMESTAMP)
+    created = Column(UTCDateTime)
+    updated = Column(UTCDateTime)
     profile = Column(Text)
     info = Column(Text)
     
