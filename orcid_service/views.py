@@ -245,6 +245,39 @@ def get_profile(orcid_id):
 
     return json.dumps(out), 200
 
+@advertise(scopes=['ads-consumer:orcid'], rate_limit=[1000, 3600 * 24])
+@bp.route('/update-orcid-profile/<orcid_id>', methods=['GET'])
+def update_profile(orcid_id):
+    '''Updates profile in orcid-service before processing'''
+
+    with current_app.session_scope() as session:
+        u = session.query(User).filter_by(orcid_id=orcid_id).first()
+        if not u:
+            return json.dumps({'error': 'We do not have a record for: %s' % orcid_id}), 404
+
+        if not u.access_token:
+            return json.dumps({'error': 'We do not have access_token for: %s' % orcid_id}), 404
+
+        token = u.access_token
+
+        headers = {
+            'Accept': 'application/json',
+            'Authorization': 'Bearer %s' % token,
+            'Content-Type': 'application/json'
+        }
+
+        r = current_app.client.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/record',
+                                       headers=headers)
+
+        if r.status_code == 200:
+            update_profile_local(orcid_id, data=r.text, force=True)
+        else:
+            logging.warning('Failed fetching fresh profile from ORCID for %s'.format(orcid_id))
+
+        profile = session.query(Profile).filter_by(orcid_id=orcid_id).first()
+        records = profile.get_records()
+
+    return json.dumps(records), 200
 
 @advertise(scopes=[], rate_limit = [100, 3600*24])
 @bp.route('/preferences/<orcid_id>', methods=['GET', 'POST'])

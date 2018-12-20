@@ -350,6 +350,22 @@ class TestServices(TestCaseDatabase):
         self.assertTrue(r.json[0]['created'])
         self.assertTrue(r.json[0]['profile'] == {"foo": u"\xe9"})
 
+        def request_callback(request, uri, headers):
+            assert request.headers['Accept'] == 'application/json'
+            assert request.headers['Content-Type'] == 'application/json'
+            if request.method == 'GET':
+                return (200, headers, json.dumps(orcid_profile_api_v2_short.data))
+
+        httpretty.register_uri(
+            httpretty.GET, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/record',
+            content_type='application/json',
+            body=request_callback)
+
+        # check that we can update the profile
+        r = self.client.get('/update-orcid-profile/%s' % '0000-0001-8178-9506')
+        self.assertTrue(len(r.json) == 1)
+        self.assertTrue(r.json.keys()[0] == '2018NatSR...8.2398L')
+
 
     def test_store_preferences(self):
         '''Tests the ability to store data'''
