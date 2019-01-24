@@ -192,10 +192,13 @@ class Profile(Base):
         """
         if type(keys) is not list:
             keys = [keys]
+        if type(status) is list:
+            status = status[0]
 
         for key in keys:
             if key in self.bibcode:
                 self.bibcode[key]['status'] = status
+                self.bibcode.changed()
             else:
                 logging.warning('Record %s not in profile for %s'.format(key, self.orcid_id))
 

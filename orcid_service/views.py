@@ -247,7 +247,7 @@ def get_profile(orcid_id):
 
 @advertise(scopes=['ads-consumer:orcid'], rate_limit=[1000, 3600 * 24])
 @bp.route('/update-orcid-profile/<orcid_id>', methods=['GET'])
-def update_profile(orcid_id):
+def update_stored_profile(orcid_id):
     '''Updates profile in orcid-service before processing'''
 
     with current_app.session_scope() as session:
@@ -329,8 +329,6 @@ def preferences(orcid_id):
 def update_status(orcid_id):
     """Gets/sets bibcode statuses for a given ORCID ID"""
 
-    payload, headers = check_request(request)
-
     if request.method == 'GET':
         with current_app.session_scope() as session:
             profile = session.query(Profile).filter_by(orcid_id=orcid_id).first()
@@ -341,6 +339,7 @@ def update_status(orcid_id):
         return json.dumps(records), 200
 
     if request.method == 'POST':
+        payload = request.json
         if 'bibcodes' not in payload:
             raise Exception('Bibcodes are missing')
         if 'status' not in payload:
@@ -352,6 +351,17 @@ def update_status(orcid_id):
             else:
                 bibcodes = payload['bibcodes']
             profile.update_status(bibcodes,payload['status'])
+
+            session.begin_nested()
+            try:
+                session.add(profile)
+                session.commit()
+            except exc.IntegrityError:
+                session.rollback()
+                return json.dumps({'msg': 'Updated status for bibcode {} not saved'.format(bibcodes)}), 500
+            # per PEP-0249 a transaction is always in progress
+            session.commit()
+
             good_bibc, good_statuses = profile.get_status(bibcodes)
             records = dict(zip(good_bibc, good_statuses))
 
