@@ -192,8 +192,9 @@ class Profile(Base):
         """
         if type(keys) is not list:
             keys = [keys]
-        if type(status) is list:
-            status = status[0]
+        if not isinstance(status, basestring):
+            logging.warning('Status to update for record %s, ORCID %s must be passed as a string'.
+                            format(keys, self.orcid_id))
 
         for key in keys:
             if key in self.bibcode:
