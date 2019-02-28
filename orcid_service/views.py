@@ -419,9 +419,18 @@ def update_profile_local(orcid_id, data=None, force=False):
         # data assumed to come from ORCID API /works endpoint
         if data:
             # convert milliseconds since epoch to seconds since epoch
-            last_modified = data['activities-summary']['last-modified-date']['value']
-            last_modified /= 1000.
-            if force or (profile.updated < datetime.utcfromtimestamp(last_modified).replace(tzinfo=pytz.utc)):
+            update = False
+            try:
+                last_modified = data['activities-summary']['last-modified-date']['value']
+            except TypeError:
+                logging.info('No activities last modified date in profile for ID {}'.format(orcid_id))
+                if force:
+                    update = True
+            else:
+                last_modified /= 1000.
+                if force or (profile.updated < datetime.utcfromtimestamp(last_modified).replace(tzinfo=pytz.utc)):
+                    update = True
+            if update:
                 works = data['activities-summary']['works']['group']
                 new_recs = {}
                 update_recs = {}
