@@ -4,7 +4,8 @@ import json
 import httpretty
 from orcid_service.models import User, Profile
 from orcid_service.tests.base import TestCaseDatabase
-from stubdata import orcid_profile, orcid_profile_api_v2, orcid_profile_api_v2_short, orcid_profile_api_v2_personaldetails, works_bulk, work_single
+from stubdata import orcid_profile, orcid_profile_api_v2, orcid_profile_api_v2_short, orcid_profile_api_v2_empty, \
+    orcid_profile_api_v2_personaldetails, works_bulk, work_single
 
 class TestServices(TestCaseDatabase):
 
@@ -85,6 +86,13 @@ class TestServices(TestCaseDatabase):
             if request.method == 'GET':
                 return (200, headers, json.dumps(orcid_profile_api_v2_short.data))
 
+        def request_empty_callback(request, uri, headers):
+            assert request.headers['Accept'] == 'application/json'
+            assert request.headers['Content-Type'] == 'application/json'
+
+            if request.method == 'GET':
+                return (200, headers, json.dumps(orcid_profile_api_v2_empty.data))
+
         httpretty.register_uri(
             httpretty.GET, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8868-9743/record',
             content_type='application/json',
@@ -113,6 +121,17 @@ class TestServices(TestCaseDatabase):
 
         self.assertStatus(f, 200)
         self.assertEquals(len(f.json), 1)
+
+        # make sure we're handling a profile with no works
+        httpretty.register_uri(httpretty.GET, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0003-0931-6047/record',
+            content_type='application/json',
+            body=request_empty_callback)
+
+        e = self.client.get('/0000-0003-0931-6047/orcid-profile/full?update=True',
+                            headers={'Orcid-Authorization': 'secret'})
+
+        self.assertStatus(e, 200)
+        self.assertEquals(len(e.json), 0)
 
     @httpretty.activate
     def test_orcid_works(self):
