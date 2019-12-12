@@ -9,6 +9,7 @@ import json
 import logging
 import pytz
 import adsmutils
+import requests
 
 bp = Blueprint('orcid', __name__)
 
@@ -27,7 +28,11 @@ def get_access_token():
       'grant_type': 'authorization_code'
     }
     #print current_app.config['ORCID_OAUTH_ENDPOINT'], data, headers
-    r = current_app.client.post(current_app.config['ORCID_OAUTH_ENDPOINT'], data=data, headers=headers)
+
+    # do not use connection pool, always establish a new connection to the orcid remote server
+    # we were having issue with dropped connectins mid-stream and this request is not idempotent
+    # therefore we can't retry
+    r = requests.post(current_app.config['ORCID_OAUTH_ENDPOINT'], data=data, headers=headers)
     if r.status_code != 200:
         logging.error('For ORCID code {}, there was an error getting the token from the ORCID API.'.
                       format(payload['code'][0]))
