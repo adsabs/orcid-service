@@ -10,6 +10,7 @@ import logging
 import pytz
 import adsmutils
 import requests
+from requests.exceptions import ConnectionError, ConnectTimeout, ReadTimeout
 
 bp = Blueprint('orcid', __name__)
 
@@ -33,9 +34,9 @@ def get_access_token():
     # we were having issue with dropped connectins mid-stream and this request is not idempotent
     # therefore we can't retry
     try:
-        r = requests.post(current_app.config['ORCID_OAUTH_ENDPOINT'], data=data, headers=headers)
-    except requests.exceptions.ConnectionError:
-        logging.error('For ORCID code {0}, there was a connection error with the ORCID API'.format(payload['code'][0]))
+        r = requests.post(current_app.config['ORCID_OAUTH_ENDPOINT'], data=data, headers=headers, timeout=30)
+    except (ConnectionError, ConnectTimeout, ReadTimeout) as e:
+        logging.error('For ORCID code %s, there was a connection error with the ORCID API'.format(payload['code'][0]))
         return 'There was a connection error with the ORCID API', 502
 
     if r.status_code != 200:
@@ -102,17 +103,17 @@ def orcid_profile_local(orcid_id, type):
 
     try:
         r = current_app.client.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/record',
-                                   headers=headers)
-    except requests.exceptions.ConnectionError:
-        logging.error('For ORCID ID {0}, there was a connection error with the ORCID API'.format(orcid_id))
+                                   headers=headers, timeout=30)
+    except (ConnectionError, ConnectTimeout, ReadTimeout) as e:
+        logging.error('For ORCID ID %s, there was a connection error with the ORCID API'.format(orcid_id))
         return 'There was a connection error with the ORCID API', 502
 
     if r.status_code == 200:
         update_profile_local(orcid_id, data=r.text, force=update)
     else:
-        logging.warning('Failed fetching fresh profile from ORCID for {0}. Status {1}, error: {2}'.format(orcid_id,
-                                                                                                          r.status_code,
-                                                                                                          r.text))
+        logging.warning('Failed fetching fresh profile from ORCID for %s. Status %s, error: %s'.format(orcid_id,
+                                                                                                       r.status_code,
+                                                                                                       r.text))
         msg = 'Error while fetching fresh profile from ORCID API'
         return msg, 502
 
@@ -292,9 +293,9 @@ def update_stored_profile(orcid_id):
 
         try:
             r = current_app.client.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/record',
-                                       headers=headers)
-        except requests.exceptions.ConnectionError:
-            logging.error('For ORCID ID {0}, there was a connection error with the ORCID API'.format(orcid_id))
+                                       headers=headers, timeout=30)
+        except (ConnectionError, ConnectTimeout, ReadTimeout) as e:
+            logging.error('For ORCID ID %s, there was a connection error with the ORCID API'.format(orcid_id))
             return 'There was a connection error with the ORCID API', 502
 
         if r.status_code == 200:
@@ -404,9 +405,9 @@ def orcid_name(orcid_id):
 
     try:
         r = current_app.client.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/personal-details',
-                                   headers=headers)
-    except requests.exceptions.ConnectionError:
-        logging.error('For ORCID ID {0}, there was a connection error with the ORCID API'.format(orcid_id))
+                                   headers=headers, timeout=30)
+    except (ConnectionError, ConnectTimeout, ReadTimeout) as e:
+        logging.error('For ORCID ID %s, there was a connection error with the ORCID API'.format(orcid_id))
         return 'There was a connection error with the ORCID API', 502
 
     return r.text, r.status_code
