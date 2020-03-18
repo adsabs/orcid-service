@@ -34,7 +34,8 @@ def get_access_token():
     # we were having issue with dropped connectins mid-stream and this request is not idempotent
     # therefore we can't retry
     try:
-        r = requests.post(current_app.config['ORCID_OAUTH_ENDPOINT'], data=data, headers=headers, timeout=30)
+        r = requests.post(current_app.config['ORCID_OAUTH_ENDPOINT'], data=data, headers=headers,
+                          timeout=current_app.config.get('CONNECTION_TIMEOUT', 30))
     except (ConnectionError, ConnectTimeout, ReadTimeout) as e:
         logging.error('For ORCID code %s, there was a connection error with the ORCID API'.format(payload['code'][0]))
         return 'There was a connection error with the ORCID API', 502
@@ -103,7 +104,7 @@ def orcid_profile_local(orcid_id, type):
 
     try:
         r = current_app.client.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/record',
-                                   headers=headers, timeout=30)
+                                   headers=headers, timeout=current_app.config.get('CONNECTION_TIMEOUT', 30))
     except (ConnectionError, ConnectTimeout, ReadTimeout) as e:
         logging.error('For ORCID ID %s, there was a connection error with the ORCID API'.format(orcid_id))
         return 'There was a connection error with the ORCID API', 502
@@ -293,7 +294,7 @@ def update_stored_profile(orcid_id):
 
         try:
             r = current_app.client.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/record',
-                                       headers=headers, timeout=30)
+                                       headers=headers, timeout=current_app.config.get('CONNECTION_TIMEOUT', 30))
         except (ConnectionError, ConnectTimeout, ReadTimeout) as e:
             logging.error('For ORCID ID %s, there was a connection error with the ORCID API'.format(orcid_id))
             return 'There was a connection error with the ORCID API', 502
@@ -405,7 +406,7 @@ def orcid_name(orcid_id):
 
     try:
         r = current_app.client.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/personal-details',
-                                   headers=headers, timeout=30)
+                                   headers=headers, timeout=current_app.config.get('CONNECTION_TIMEOUT', 30))
     except (ConnectionError, ConnectTimeout, ReadTimeout) as e:
         logging.error('For ORCID ID %s, there was a connection error with the ORCID API'.format(orcid_id))
         return 'There was a connection error with the ORCID API', 502
