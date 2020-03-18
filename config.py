@@ -10,3 +10,6 @@ ORCID_CLIENT_SECRET = '989e54c8-7093-4128-935f-30c19ed9158c'
 
 SQLALCHEMY_DATABASE_URI = "postgresql+psycopg2://postgres:postgres@localhost:5432/test_orcid_service"
 SQLALCHEMY_ECHO = False
+
+# timeout in seconds
+CONNECTION_TIMEOUT = 30

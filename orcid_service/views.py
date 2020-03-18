@@ -10,6 +10,7 @@ import logging
 import pytz
 import adsmutils
 import requests
+from requests.exceptions import ConnectionError, ConnectTimeout, ReadTimeout
 
 bp = Blueprint('orcid', __name__)
 
@@ -32,10 +33,17 @@ def get_access_token():
     # do not use connection pool, always establish a new connection to the orcid remote server
     # we were having issue with dropped connectins mid-stream and this request is not idempotent
     # therefore we can't retry
-    r = requests.post(current_app.config['ORCID_OAUTH_ENDPOINT'], data=data, headers=headers)
+    try:
+        r = requests.post(current_app.config['ORCID_OAUTH_ENDPOINT'], data=data, headers=headers,
+                          timeout=current_app.config.get('CONNECTION_TIMEOUT', 30))
+    except (ConnectionError, ConnectTimeout, ReadTimeout) as e:
+        logging.error('For ORCID code %s, there was a connection error with the ORCID API'.format(payload['code'][0]))
+        return 'There was a connection error with the ORCID API', 502
+
     if r.status_code != 200:
         logging.error('For ORCID code {}, there was an error getting the token from the ORCID API.'.
                       format(payload['code'][0]))
+        return r.text, r.status_code
 
     # update/create user account
     data = r.json()
@@ -94,21 +102,34 @@ def orcid_profile_local(orcid_id, type):
     if type not in ['simple','full']:
         return json.dumps('Endpoint /orcid-profile/%s does not exist'.format(type)), 404
 
-    r = current_app.client.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/record',
-                                   headers=headers)
+    try:
+        r = current_app.client.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/record',
+                                   headers=headers, timeout=current_app.config.get('CONNECTION_TIMEOUT', 30))
+    except (ConnectionError, ConnectTimeout, ReadTimeout) as e:
+        logging.error('For ORCID ID %s, there was a connection error with the ORCID API'.format(orcid_id))
+        return 'There was a connection error with the ORCID API', 502
 
     if r.status_code == 200:
         update_profile_local(orcid_id, data=r.text, force=update)
     else:
-        logging.warning('Failed fetching fresh profile from ORCID for %s'.format(orcid_id))
+        logging.warning('Failed fetching fresh profile from ORCID for %s. Status %s, error: %s'.format(orcid_id,
+                                                                                                       r.status_code,
+                                                                                                       r.text))
+        msg = 'Error while fetching fresh profile from ORCID API'
+        return msg, 502
 
     with current_app.session_scope() as session:
         profile = session.query(Profile).filter_by(orcid_id=orcid_id).first()
-        if type == 'simple':
-            bibcodes, statuses = profile.get_bibcodes()
-            records = dict(zip(bibcodes, statuses))
-        elif type == 'full':
-            records = profile.get_records()
+        if profile:
+            if type == 'simple':
+                bibcodes, statuses = profile.get_bibcodes()
+                records = dict(zip(bibcodes, statuses))
+            elif type == 'full':
+                records = profile.get_records()
+        else:
+            logging.warning('No profile found in database for {0}; aborting update'.format(orcid_id))
+            msg = 'No profile found'
+            return msg, 404
 
     return json.dumps(records), 200
 
@@ -271,8 +292,12 @@ def update_stored_profile(orcid_id):
             'Content-Type': 'application/json'
         }
 
-        r = current_app.client.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/record',
-                                       headers=headers)
+        try:
+            r = current_app.client.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/record',
+                                       headers=headers, timeout=current_app.config.get('CONNECTION_TIMEOUT', 30))
+        except (ConnectionError, ConnectTimeout, ReadTimeout) as e:
+            logging.error('For ORCID ID %s, there was a connection error with the ORCID API'.format(orcid_id))
+            return 'There was a connection error with the ORCID API', 502
 
         if r.status_code == 200:
             update_profile_local(orcid_id, data=r.text, force=True)
@@ -379,8 +404,12 @@ def orcid_name(orcid_id):
 
     payload, headers = check_request(request)
 
-    r = current_app.client.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/personal-details',
-                                   headers=headers)
+    try:
+        r = current_app.client.get(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/personal-details',
+                                   headers=headers, timeout=current_app.config.get('CONNECTION_TIMEOUT', 30))
+    except (ConnectionError, ConnectTimeout, ReadTimeout) as e:
+        logging.error('For ORCID ID %s, there was a connection error with the ORCID API'.format(orcid_id))
+        return 'There was a connection error with the ORCID API', 502
 
     return r.text, r.status_code
 
