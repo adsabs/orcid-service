@@ -54,3 +54,8 @@ docs/_build/
 target/
 
 *~
+*.idea
+**/.DS_Store
+python
+*local_config.py*
+logs/
