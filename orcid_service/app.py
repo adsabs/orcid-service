@@ -1,6 +1,7 @@
+from __future__ import absolute_import
 from werkzeug.serving import run_simple
 from adsmutils import ADSFlask
-from views import bp
+from .views import bp
 from flask.ext.discoverer import Discoverer
 
 def create_app(**config):
