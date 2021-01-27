@@ -2,7 +2,8 @@ from __future__ import absolute_import
 from werkzeug.serving import run_simple
 from adsmutils import ADSFlask
 from .views import bp
-from flask.ext.discoverer import Discoverer
+from flask_discoverer import Discoverer
+from flask import Response
 
 def create_app(**config):
 
@@ -30,6 +31,11 @@ def create_app(**config):
     app.register_blueprint(bp)
 
     discoverer = Discoverer(app)
+
+    class JsonResponse(Response):
+        default_mimetype = 'application/json'
+
+    app.response_class = JsonResponse
 
     return app
 

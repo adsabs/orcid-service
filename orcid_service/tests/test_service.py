@@ -4,7 +4,7 @@ import json
 import httpretty
 from orcid_service.models import User, Profile
 from orcid_service.tests.base import TestCaseDatabase
-from stubdata import orcid_profile, orcid_profile_api_v2, orcid_profile_api_v2_short, orcid_profile_api_v2_empty, \
+from .stubdata import orcid_profile, orcid_profile_api_v2, orcid_profile_api_v2_short, orcid_profile_api_v2_empty, \
     orcid_profile_api_v2_personaldetails, works_bulk, work_single
 
 class TestServices(TestCaseDatabase):
@@ -16,7 +16,7 @@ class TestServices(TestCaseDatabase):
         client_secret = self.app.config.get('ORCID_CLIENT_SECRET')
         def request_callback(request, uri, headers):
             assert request.headers['Accept'] == 'application/json'
-            assert request.parsed_body['code'] == [u'exWxfg']
+            assert request.parsed_body['code'] == ['exWxfg']
             assert request.parsed_body['client_id'] == [client_id]
             assert request.parsed_body['client_secret'] == [client_secret]
             return (200, headers, """{
@@ -45,7 +45,7 @@ class TestServices(TestCaseDatabase):
             if request.method == 'GET':
                 return (200, headers, json.dumps(orcid_profile.data))
             elif request.method == 'POST':
-                assert request.body == json.dumps({'foo': 'bar'})
+                assert request.body.decode('utf-8') == json.dumps({'foo': 'bar'})
                 return (201, headers, '') # orcid literally returns empty string
     
         httpretty.register_uri(
@@ -59,7 +59,7 @@ class TestServices(TestCaseDatabase):
 
         r = self.client.get('/0000-0001-8178-9506/orcid-profile',
                 headers={'Orcid-Authorization': 'secret'})
-        
+
         self.assertStatus(r, 200)
         self.assertIn('orcid-profile', r.json)
         
@@ -102,14 +102,14 @@ class TestServices(TestCaseDatabase):
                 headers={'Orcid-Authorization': 'secret'})
 
         self.assertStatus(r, 200)
-        self.assertEquals(len(r.json), 7)
+        self.assertEqual(len(r.json), 7)
 
         s = self.client.get('/0000-0001-8868-9743/orcid-profile/full',
                 headers={'Orcid-Authorization': 'secret'})
 
         self.assertStatus(s, 200)
-        self.assertEquals(len(s.json), 9)
-        self.assertEquals(len(s.json['2015ApJ...810..149L']['source']),2)
+        self.assertEqual(len(s.json), 9)
+        self.assertEqual(len(s.json['2015ApJ...810..149L']['source']),2)
 
         httpretty.register_uri(
             httpretty.GET, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8868-9743/record',
@@ -120,7 +120,7 @@ class TestServices(TestCaseDatabase):
                             headers={'Orcid-Authorization': 'secret'})
 
         self.assertStatus(f, 200)
-        self.assertEquals(len(f.json), 1)
+        self.assertEqual(len(f.json), 1)
 
         # make sure we're handling a profile with no works
         httpretty.register_uri(httpretty.GET, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0003-0931-6047/record',
@@ -131,7 +131,7 @@ class TestServices(TestCaseDatabase):
                             headers={'Orcid-Authorization': 'secret'})
 
         self.assertStatus(e, 200)
-        self.assertEquals(len(e.json), 0)
+        self.assertEqual(len(e.json), 0)
 
     @httpretty.activate
     def test_orcid_works(self):
@@ -144,13 +144,13 @@ class TestServices(TestCaseDatabase):
             elif request.method == 'GET':
                 return (200, headers, json.dumps(work_single.data))
             elif (request.method == 'POST') & (uri.split('/')[-1] == 'work'):
-                assert request.body == json.dumps({'foo': 'bar'})
+                assert request.body.decode('utf-8') == json.dumps({'foo': 'bar'})
                 return (201, headers, '')  # orcid literally returns empty string for single works post
             elif (request.method == 'POST') & (uri.split('/')[-1] == 'works'):
-                assert request.body == json.dumps({'foo': 'bar'})
+                assert request.body.decode('utf-8') == json.dumps({'foo': 'bar'})
                 return (200, headers, json.dumps(works_bulk.data))
             elif request.method == 'PUT':
-                assert request.body == json.dumps({'foo': 'bar'})
+                assert request.body.decode('utf-8') == json.dumps({'foo': 'bar'})
                 return (200, headers, json.dumps(work_single.data))
             elif request.method == 'DELETE':
                 return (204, headers, '') # returns empty string
@@ -346,10 +346,10 @@ class TestServices(TestCaseDatabase):
                 query_string={'fields': ['created', 'orcid_id']},
                 headers={'Orcid-Authorization': 'secret'})
         self.assertTrue(len(r.json) == 1)
-        self.assertTrue(r.json[0].has_key('created'))
-        self.assertTrue(r.json[0].has_key('orcid_id'))
-        self.assertFalse(r.json[0].has_key('updated'))
-        self.assertFalse(r.json[0].has_key('profile'))
+        self.assertTrue('created' in r.json[0])
+        self.assertTrue('orcid_id' in r.json[0])
+        self.assertFalse('updated' in r.json[0])
+        self.assertFalse('profile' in r.json[0])
         
         
         # and it can retrieve the data (for us)
@@ -383,7 +383,7 @@ class TestServices(TestCaseDatabase):
         # check that we can update the profile
         r = self.client.get('/update-orcid-profile/%s' % '0000-0001-8178-9506')
         self.assertTrue(len(r.json) == 1)
-        self.assertTrue(r.json.keys()[0] == '2018NatSR...8.2398L')
+        self.assertTrue(list(r.json.keys())[0] == '2018NatSR...8.2398L')
 
 
     def test_store_preferences(self):
@@ -412,7 +412,7 @@ class TestServices(TestCaseDatabase):
                 content_type='application/json')
         
         self.assertStatus(r, 200)
-        self.assert_(r.json == {}, 'missing empty json response')
+        self.assertTrue(r.json == {}, 'missing empty json response')
         
         # try to save something broken (it has to be json)
         r = self.client.post(url_for('orcid.preferences', orcid_id='test'),
@@ -421,7 +421,7 @@ class TestServices(TestCaseDatabase):
                 content_type='application/json')
         
         self.assertStatus(r, 400)
-        self.assert_(r.json['msg'], 'missing explanation')
+        self.assertTrue(r.json['msg'], 'missing explanation')
         
         # save something
         r = self.client.post(url_for('orcid.preferences', orcid_id='test'),
@@ -430,7 +430,7 @@ class TestServices(TestCaseDatabase):
                 content_type='application/json')
         
         self.assertStatus(r, 200)
-        self.assert_(r.json['foo'] == 'bar', 'missing echo')
+        self.assertTrue(r.json['foo'] == 'bar', 'missing echo')
         
         # get it back
         r = self.client.get(url_for('orcid.preferences', orcid_id='test'),
@@ -438,7 +438,7 @@ class TestServices(TestCaseDatabase):
                 content_type='application/json')
         
         self.assertStatus(r, 200)
-        self.assert_(r.json == {'foo': 'bar'}, 'missing data')
+        self.assertTrue(r.json == {'foo': 'bar'}, 'missing data')
 
     def test_update_status(self):
         with self.app.session_scope() as session:
@@ -460,7 +460,7 @@ class TestServices(TestCaseDatabase):
                             content_type='application/json')
 
         self.assertStatus(r, 200)
-        self.assert_(r.json == {'2018NatSR...8.2398L': 'pending'})
+        self.assertTrue(r.json == {'2018NatSR...8.2398L': 'pending'})
 
         r = self.client.post(url_for('orcid.update_status', orcid_id='test'),
                             headers={'Orcid-Authorization': 'secret'},
@@ -468,7 +468,7 @@ class TestServices(TestCaseDatabase):
                             content_type='application/json')
 
         self.assertStatus(r, 200)
-        self.assert_(r.json == {u'2018NatSR...8.2398L': 'verified'})
+        self.assertTrue(r.json == {u'2018NatSR...8.2398L': 'verified'})
 
     @httpretty.activate
     def test_get_orcid_name(self):
@@ -489,7 +489,7 @@ class TestServices(TestCaseDatabase):
                             headers={'Orcid-Authorization': 'secret'})
 
         self.assertStatus(r, 200)
-        self.assert_(r.json['name']['family-name']['value'] == 'Payne')
+        self.assertTrue(r.json['name']['family-name']['value'] == 'Payne')
 
 if __name__ == '__main__':
   unittest.main()
