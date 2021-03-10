@@ -1,5 +1,5 @@
 from flask import current_app, request, Blueprint
-from flask.ext.discoverer import advertise
+from flask_discoverer import advertise
 from .models import User, Profile
 from datetime import datetime
 from dateutil import parser
@@ -18,14 +18,14 @@ bp = Blueprint('orcid', __name__)
 @bp.route('/exchangeOAuthCode', methods=['GET'])
 def get_access_token():
     '''Exchange 'code' for 'access_token' data'''
-    payload = dict(request.args)
+    payload = request.args.to_dict()
     if 'code' not in payload:
         raise Exception('Parameter code is missing')
     headers = {'Accept': 'application/json'}
     data = {
       'client_id': current_app.config['ORCID_CLIENT_ID'],
       'client_secret': current_app.config['ORCID_CLIENT_SECRET'],
-      'code': payload['code'][0],
+      'code': payload['code'],
       'grant_type': 'authorization_code'
     }
     #print current_app.config['ORCID_OAUTH_ENDPOINT'], data, headers
@@ -37,12 +37,12 @@ def get_access_token():
         r = requests.post(current_app.config['ORCID_OAUTH_ENDPOINT'], data=data, headers=headers,
                           timeout=current_app.config.get('CONNECTION_TIMEOUT', 30))
     except (ConnectionError, ConnectTimeout, ReadTimeout) as e:
-        logging.error('For ORCID code %s, there was a connection error with the ORCID API'.format(payload['code'][0]))
+        logging.error('For ORCID code %s, there was a connection error with the ORCID API'.format(payload['code']))
         return 'There was a connection error with the ORCID API', 502
 
     if r.status_code != 200:
         logging.error('For ORCID code {}, there was an error getting the token from the ORCID API.'.
-                      format(payload['code'][0]))
+                      format(payload['code']))
         return r.text, r.status_code
 
     # update/create user account
@@ -194,7 +194,7 @@ def export(iso_datestring):
 
     latest_point = parser.parse(iso_datestring) # RFC 3339 format
 
-    payload = dict(request.args)
+    payload = dict(request.args.lists())
     allowed_fields = ['orcid_id', 'created', 'updated', 'profile']
     fields = payload.get('fields', allowed_fields)
     fields_to_load = list(set(fields) & set(allowed_fields))
@@ -218,7 +218,7 @@ def export(iso_datestring):
                 v = getattr(r, k)
                 if k == 'profile':
                     try:
-                        v = json.loads(unicode(v))
+                        v = json.loads(str(v))
                     except:
                         v = None
                 if hasattr(v, 'isoformat'):
@@ -321,7 +321,7 @@ def preferences(orcid_id):
     try:
         payload, headers = check_request(request)
     except Exception as e:
-        return json.dumps({'msg': e.message or e.description}), 400
+        return json.dumps({'msg': str(e)}), 400
 
     access_token = headers['Authorization'][7:] # remove the 'Bearer:' thing
 
@@ -470,7 +470,7 @@ def update_profile_local(orcid_id, data=None, force=False):
                 update_recs = {}
                 orcid_recs = []
                 try:
-                    current_recs = profile.bibcode.keys()
+                    current_recs = list(profile.bibcode.keys())
                 except:
                     current_recs = []
                 for work in works:
