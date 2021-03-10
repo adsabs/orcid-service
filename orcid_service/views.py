@@ -154,7 +154,8 @@ def orcid_works(orcid_id,putcode):
         # ORCID API is returning a 409 if there is an external ID conflict; removing the conflicting ID is the best fix right now
         counter = 0
         while r.status_code == 409 and counter < 3:
-            logging.info('ORCID 409 claim conflict for ORCID %s, putcode %s. Error: %s'.format(orcid_id, putcode, r.text))
+            logging.info('ORCID 409 claim conflict for ORCID %s, putcode %s. Error: %s. Counter: %s'.
+                         format(orcid_id, putcode, r.text, counter))
             payload = clean_works_payload(payload)
             r = current_app.client.put(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/work/' + putcode,
                                        json=payload, headers=headers)
