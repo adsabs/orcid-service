@@ -4,8 +4,9 @@ import json
 import httpretty
 from orcid_service.models import User, Profile
 from orcid_service.tests.base import TestCaseDatabase
-from .stubdata import orcid_profile, orcid_profile_api_v2, orcid_profile_api_v2_short, orcid_profile_api_v2_empty, \
-    orcid_profile_api_v2_personaldetails, works_bulk, work_single
+from stubdata import orcid_profile, orcid_profile_api_v2, orcid_profile_api_v2_short, orcid_profile_api_v2_empty, \
+    orcid_profile_api_v2_personaldetails, works_bulk, work_single, work_single_409
+
 
 class TestServices(TestCaseDatabase):
 
@@ -214,7 +215,45 @@ class TestServices(TestCaseDatabase):
                 headers={'Orcid-Authorization': 'secret'})
         self.assertStatus(r, 204)
 
-        
+    @httpretty.activate
+    def test_orcid_works_409(self):
+        def request_callback(request, uri, headers):
+            assert request.headers['Accept'] == 'application/json'
+            assert request.headers['Content-Type'] == 'application/json'
+            if json.loads(request.body) == work_single_409.data:
+                return (409, headers, 'error')
+            elif json.loads(request.body) == work_single_409.data_noarxiv:
+                return (200, headers, json.dumps(work_single_409.data_noarxiv))
+            else:
+                assert False, 'Something went wrong in the test'
+
+        # def request_callback_2(request, uri, headers):
+        #     assert request.headers['Accept'] == 'application/json'
+        #     assert request.headers['Content-Type'] == 'application/json'
+        #     import pdb
+        #     pdb.set_trace()
+        #     assert request.body == json.dumps(work_single_409.data_noarxiv)
+        #     return 200, headers
+
+        httpretty.register_uri(
+            httpretty.PUT, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/work/63945135',
+            content_type='application/json',
+            body=request_callback)
+
+        # httpretty.register_uri(
+        #     httpretty.PUT, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8178-9506/work/63945135',
+        #     content_type='application/json',
+        #     body=json.dumps(work_single_409.data_noarxiv),
+        #     status=200)
+
+        r = self.client.put('/0000-0001-8178-9506/orcid-works/63945135',
+                            headers={'Orcid-Authorization': 'secret'},
+                            data=json.dumps(work_single_409.data),
+                            content_type='application/json')
+
+        self.assertStatus(r, 200)
+        self.assertEqual(r.json, work_single_409.data_noarxiv)
+
     @httpretty.activate
     def test_persistence(self):
         httpretty.register_uri(

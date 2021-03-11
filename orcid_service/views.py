@@ -150,6 +150,17 @@ def orcid_works(orcid_id,putcode):
     elif request.method == 'PUT':
         r = current_app.client.put(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/work/' + putcode,
                       json=payload, headers=headers)
+
+        # ORCID API is returning a 409 if there is an external ID conflict; removing the conflicting ID is the best fix right now
+        counter = 0
+        while r.status_code == 409 and counter < 3:
+            logging.info('ORCID 409 claim conflict for ORCID %s, putcode %s. Error: %s. Counter: %s'.
+                         format(orcid_id, putcode, r.text, counter))
+            payload = clean_works_payload(payload)
+            r = current_app.client.put(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/work/' + putcode,
+                                       json=payload, headers=headers)
+            counter += 1
+
         update_profile(orcid_id)
     elif request.method == 'DELETE':
         r = current_app.client.delete(current_app.config['ORCID_API_ENDPOINT'] + '/' + orcid_id + '/work/' + putcode,
@@ -525,6 +536,24 @@ def check_request(request):
         payload.update(dict(request.form))
 
     return (payload, h)
+
+
+def clean_works_payload(payload):
+    # ORCID API balks sometimes at duplicate external IDs (arxiv or doi) - try removing first the arxiv, then the doi
+    ext_ids = payload['external-ids']['external-id']
+    # if arxiv in external-id-type, remove that
+    ext_ids_clean = [i for i in ext_ids if not i['external-id-type'] == 'arxiv']
+    if len(ext_ids) == len(ext_ids_clean):
+        # otherwise, try removing doi
+        ext_ids_clean = [i for i in ext_ids if not i['external-id-type'] == 'doi']
+
+    logging.info('Removed external IDs from ORCID claim due to 409 error. Original IDs: %s; cleaned IDs: %s'.
+                 format(ext_ids, ext_ids_clean))
+
+    payload['external-ids']['external-id'] = ext_ids_clean
+
+    return payload
+
 
 def find_record(work):
     """
