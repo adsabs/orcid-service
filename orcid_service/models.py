@@ -192,7 +192,7 @@ class Profile(Base):
         """
         if type(keys) is not list:
             keys = [keys]
-        if not isinstance(status, basestring):
+        if not isinstance(status, str):
             logging.warning('Status to update for record %s, ORCID %s must be passed as a string'.
                             format(keys, self.orcid_id))
 
