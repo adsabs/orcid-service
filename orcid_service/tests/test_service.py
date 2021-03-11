@@ -4,7 +4,7 @@ import json
 import httpretty
 from orcid_service.models import User, Profile
 from orcid_service.tests.base import TestCaseDatabase
-from stubdata import orcid_profile, orcid_profile_api_v2, orcid_profile_api_v2_short, orcid_profile_api_v2_empty, \
+from .stubdata import orcid_profile, orcid_profile_api_v2, orcid_profile_api_v2_short, orcid_profile_api_v2_empty, \
     orcid_profile_api_v2_personaldetails, works_bulk, work_single, work_single_409
 
 
