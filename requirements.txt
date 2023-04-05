@@ -3,3 +3,7 @@ alembic==0.9.2
 psycopg2==2.8.6
 SQLAlchemy-Utils==0.32.14
 future==0.18.2
+jinja2==2.11.3
+markupsafe<=2.0.1
+itsdangerous<=2.0.1
+werkzeug<=2.0.3
