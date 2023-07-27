@@ -609,7 +609,7 @@ def find_record(work):
                 id0 = d['external-id-value']
                 status = 'pending'
                 title = doc['title']['title']['value']
-                putcode = doc['put-code']
+                putcode = str(doc['put-code'])
                 try:
                     pubyear = doc['publication-date']['year']['value']
                 except TypeError:
@@ -628,7 +628,7 @@ def find_record(work):
             # save off the metadata for a DOI record in case we can't find a bibcode later
             status = 'pending'
             title = doc['title']['title']['value']
-            putcode = doc['put-code']
+            putcode = str(doc['put-code'])
             try:
                 pubyear = doc['publication-date']['year']['value']
             except TypeError:
@@ -655,7 +655,7 @@ def find_record(work):
         id0 = str(work['work-summary'][0]['put-code'])
         status = 'not in ADS'
         title = work['work-summary'][0]['title']['title']['value']
-        putcode = work['work-summary'][0]['put-code']
+        putcode = str(work['work-summary'][0]['put-code'])
         try:
             pubyear = work['work-summary'][0]['publication-date']['year']['value']
         except TypeError:
