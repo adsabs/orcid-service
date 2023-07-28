@@ -113,7 +113,7 @@ class TestServices(TestCaseDatabase):
         self.assertEqual(len(s.json['2015ApJ...810..149L']['source']),2)
         for _, value in s.json.items():
             putcode = value.get('putcode', None)
-            self.assert_type_string(putcode)
+            self.assertTrue(type(putcode), str)
 
         httpretty.register_uri(
             httpretty.GET, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8868-9743/record',
@@ -532,9 +532,6 @@ class TestServices(TestCaseDatabase):
 
         self.assertStatus(r, 200)
         self.assertTrue(r.json['name']['family-name']['value'] == 'Payne')
-
-    def assert_type_string(self, value):
-        assert isinstance(value, str), f"Value is not of type string. Found {type(value)} instead."
 
 if __name__ == '__main__':
   unittest.main()
