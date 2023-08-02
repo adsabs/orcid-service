@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 from werkzeug.serving import run_simple
 from adsmutils import ADSFlask
-from .views import bp
+from orcid_service.views import bp
 from flask_discoverer import Discoverer
 from flask import Response
 
