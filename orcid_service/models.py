@@ -193,7 +193,7 @@ class Profile(Base):
         if type(keys) is not list:
             keys = [keys]
         if not isinstance(status, str):
-            logging.warning('Status to update for record %s, ORCID %s must be passed as a string'.
+            logging.warning('Status to update for record {0}, ORCID {1} must be passed as a string'.
                             format(keys, self.orcid_id))
 
         for key in keys:
@@ -201,7 +201,7 @@ class Profile(Base):
                 self.bibcode[key]['status'] = status
                 self.bibcode.changed()
             else:
-                logging.warning('Record %s not in profile for %s'.format(key, self.orcid_id))
+                logging.warning('Record {0} not in profile for {1}'.format(key, self.orcid_id))
 
     def get_status(self, keys):
         """
