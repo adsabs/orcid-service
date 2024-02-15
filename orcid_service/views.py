@@ -621,7 +621,7 @@ def find_record(work):
 
                 break
 
-            elif d['external-id-type'] == 'doi':
+            elif d['external-id-type'] == 'doi' and not hasBibcode:
                 id0 = d['external-id-value']
 
         if (id0 and not hasBibcode):

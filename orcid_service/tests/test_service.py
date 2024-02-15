@@ -3,9 +3,10 @@ import unittest
 import json
 import httpretty
 from orcid_service.models import User, Profile
+from orcid_service.views import update_profile_local
 from orcid_service.tests.base import TestCaseDatabase
 from .stubdata import orcid_profile, orcid_profile_api_v2, orcid_profile_api_v2_short, orcid_profile_api_v2_empty, \
-    orcid_profile_api_v2_personaldetails, works_bulk, work_single, work_single_409
+    orcid_profile_api_v2_personaldetails, works_bulk, work_single, work_single_409, orcid_aa
 
 
 class TestServices(TestCaseDatabase):
@@ -427,6 +428,56 @@ class TestServices(TestCaseDatabase):
         self.assertTrue(len(r.json) == 1)
         self.assertTrue(list(r.json.keys())[0] == '2018NatSR...8.2398L')
 
+    def test_update_local_storage(self):
+        with self.app.session_scope() as session:
+            u = session.query(User).filter_by(access_token='key3511').first()
+            if u:
+                session.delete(u)
+                session.commit()
+            u = User(orcid_id='0000-0002-4110-3511', access_token='key3511')
+            session.add(u)
+            session.commit()
+
+            p = session.query(Profile).filter_by(orcid_id='0000-0002-4110-3511').first()
+            if p:
+                session.delete(p)
+                session.commit()
+            p = Profile(orcid_id='0000-0002-4110-3511', bibcode={"2007ASPC..376..467A":
+                                                               {"identifier": "2007ASPC..376..467A",
+                                                                "status": "verified",
+                                                                "title": "Closing the Loop: Linking Datasets to Publications and Back",
+                                                                "pubyear": "2007", "pubmonth": "10",
+                                                                "updated": "2022-05-25T04:08:54.757000+00:00",
+                                                                "putcode": "26708993",
+                                                                "source": ["NASA Astrophysics Data System"]},
+                                                           "1989LNP...329..191A":
+                                                               {"identifier": "1989LNP...329..191A",
+                                                                "status": "verified",
+                                                                "title": "An approach to heuristic exploitation of astronomers' knowledge in automatic interpretation of optical pictures",
+                                                                "pubyear": "1989", "pubmonth": None,
+                                                                "updated": "2022-06-07T16:29:47.871000+00:00",
+                                                                "putcode": "111778579",
+                                                                "source": ["NASA Astrophysics Data System"]},
+                                                             "10.3847/1538-4365/ac6268": {
+                                                                 "identifier": "10.3847/1538-4365/ac6268",
+                                                                 "status": "pending",
+                                                                 "title": "Best Practices for Data Publication in the Astronomical Literature",
+                                                                 "pubyear": "2022", "pubmonth": "05",
+                                                                 "updated": "2023-10-27T01:45:31.180000+00:00",
+                                                                 "putcode": "111778373",
+                                                                 "source": ["NASA Astrophysics Data System", "Crossref"]}
+                                                             }
+                        )
+            session.add(p)
+            session.commit()
+
+        # check that we can update the stored profile
+        update_profile_local(orcid_id='0000-0002-4110-3511', data=json.dumps(orcid_aa.data), force=True)
+
+        with self.app.session_scope() as session:
+            p = session.query(Profile).filter_by(orcid_id='0000-0002-4110-3511').first()
+
+            self.assertEqual(p.bibcode.keys(), {"2022ApJS..260....5C", "2007ASPC..376..467A", "1989LNP...329..191A"})
 
     def test_store_preferences(self):
         '''Tests the ability to store data'''
