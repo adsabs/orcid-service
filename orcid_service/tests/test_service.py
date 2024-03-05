@@ -492,7 +492,7 @@ class TestServices(TestCaseDatabase):
             
         # wrong request (missing Orcid-Authorization)
         r = self.client.get(url_for('orcid.preferences', orcid_id='test'),
-                headers={'Authorization': 'Bearer:secret'},
+                headers={'Authorization': 'Bearer secret'},
                 data=json.dumps({'foo': 'bar'}),
                 content_type='application/json')
         
@@ -500,7 +500,7 @@ class TestServices(TestCaseDatabase):
         
         # no data is there yet (get params ignored)
         r = self.client.get(url_for('orcid.preferences', orcid_id='test'),
-                headers={'Authorization': 'secret', 'Orcid-Authorization': 'Bearer:keyx'},
+                headers={'Authorization': 'secret', 'Orcid-Authorization': 'Bearer keyx'},
                 data=json.dumps({'foo': 'bar'}),
                 content_type='application/json')
         
@@ -509,7 +509,7 @@ class TestServices(TestCaseDatabase):
         
         # try to save something broken (it has to be json)
         r = self.client.post(url_for('orcid.preferences', orcid_id='test'),
-                headers={'Authorization': 'secret', 'Orcid-Authorization': 'Bearer:keyx'},
+                headers={'Authorization': 'secret', 'Orcid-Authorization': 'Bearer keyx'},
                 data=json.dumps({'foo': 'bar'})[0:-2],
                 content_type='application/json')
         
@@ -518,7 +518,7 @@ class TestServices(TestCaseDatabase):
         
         # save something
         r = self.client.post(url_for('orcid.preferences', orcid_id='test'),
-                headers={'Authorization': 'secret', 'Orcid-Authorization': 'Bearer:keyx'},
+                headers={'Authorization': 'secret', 'Orcid-Authorization': 'Bearer keyx'},
                 data=json.dumps({'foo': 'bar'}),
                 content_type='application/json')
         
@@ -527,7 +527,7 @@ class TestServices(TestCaseDatabase):
         
         # get it back
         r = self.client.get(url_for('orcid.preferences', orcid_id='test'),
-                headers={'Authorization': 'secret', 'Orcid-Authorization': 'Bearer:keyx'},
+                headers={'Authorization': 'secret', 'Orcid-Authorization': 'Bearer keyx'},
                 content_type='application/json')
         
         self.assertStatus(r, 200)
