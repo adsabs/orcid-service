@@ -11,7 +11,6 @@ from .stubdata import orcid_profile, orcid_profile_api_v2, orcid_profile_api_v2_
 
 class TestServices(TestCaseDatabase):
 
-
     @httpretty.activate
     def test_exchangeOAuthCode(self):
         client_id = self.app.config.get('ORCID_CLIENT_ID')
@@ -111,11 +110,8 @@ class TestServices(TestCaseDatabase):
 
         self.assertStatus(s, 200)
         self.assertEqual(len(s.json), 9)
-        self.assertEqual(len(s.json['2015ApJ...810..149L']['source']),2)
-        for _, value in s.json.items():
-            putcode = value.get('putcode', None)
-            self.assertTrue(type(putcode), str)
-
+        self.assertEqual(len(s.json['2015ApJ...810..149L']['source']), 2)
+    
         httpretty.register_uri(
             httpretty.GET, self.app.config['ORCID_API_ENDPOINT'] + '/0000-0001-8868-9743/record',
             content_type='application/json',
