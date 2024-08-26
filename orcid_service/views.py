@@ -570,7 +570,7 @@ def find_record(work):
         tmp = work['external-ids']['external-id'][0]['external-id-type']
     except IndexError:
         # no ID is given, so get the putcode and the metadata from the first record
-        id0 = str(work['work-summary'][0]['put-code'])
+        id0 = work['work-summary'][0]['put-code']
         status = 'not in ADS'
         title = work['work-summary'][0]['title']['title']['value']
         try:
@@ -585,7 +585,7 @@ def find_record(work):
         for doc in docs:
             sources.append(doc['source']['source-name']['value'])
 
-        return id0, {id0: {'identifier': id0,
+        return id0, {id0: {'identifier': str(id0),
                            'status': status,
                            'title': title,
                            'pubyear': pubyear,
@@ -609,7 +609,7 @@ def find_record(work):
                 id0 = d['external-id-value']
                 status = 'pending'
                 title = doc['title']['title']['value']
-                putcode = str(doc['put-code'])
+                putcode = doc['put-code']
                 try:
                     pubyear = doc['publication-date']['year']['value']
                 except TypeError:
@@ -628,7 +628,7 @@ def find_record(work):
             # save off the metadata for a DOI record in case we can't find a bibcode later
             status = 'pending'
             title = doc['title']['title']['value']
-            putcode = str(doc['put-code'])
+            putcode = doc['put-code']
             try:
                 pubyear = doc['publication-date']['year']['value']
             except TypeError:
@@ -655,7 +655,7 @@ def find_record(work):
         id0 = str(work['work-summary'][0]['put-code'])
         status = 'not in ADS'
         title = work['work-summary'][0]['title']['title']['value']
-        putcode = str(work['work-summary'][0]['put-code'])
+        putcode = work['work-summary'][0]['put-code']
         try:
             pubyear = work['work-summary'][0]['publication-date']['year']['value']
         except TypeError:
